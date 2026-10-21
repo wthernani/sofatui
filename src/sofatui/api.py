@@ -502,6 +502,7 @@ class SofaScoreClient:
             "graph": f"/event/{event_id}/graph",
             "h2h": f"/event/{event_id}/h2h",
             "pregame": f"/event/{event_id}/pregame-form",
+            "managers": f"/event/{event_id}/managers",
         }
         futures = {
             key: self._pool.submit(self.get_json, path, ttl, 5.0, allow_stale)
@@ -514,6 +515,11 @@ class SofaScoreClient:
             return None
 
         match_event = MatchEvent.from_dict(ev_payload["event"])
+        mgr_payload = results.get("managers") or {}
+        if not match_event.home_manager and isinstance(mgr_payload.get("homeManager"), dict):
+            match_event.home_manager = str(mgr_payload["homeManager"].get("name") or "")
+        if not match_event.away_manager and isinstance(mgr_payload.get("awayManager"), dict):
+            match_event.away_manager = str(mgr_payload["awayManager"].get("name") or "")
         self._register_events([match_event])
 
         incidents: list[IncidentItem] = []

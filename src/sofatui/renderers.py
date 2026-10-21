@@ -1043,6 +1043,8 @@ def render_tactical_pitch(
     h_hdr.append(f"■ {ev.home_team.name}", style=f"bold {h_color}")
     if lu.home.formation:
         h_hdr.append(f"  •  {lu.home.formation}", style="bold #cbd5e1")
+    if ev.home_manager:
+        h_hdr.append(f"  •  Coach: {ev.home_manager}", style="#94a3b8")
     pitch_lines.append(Align.center(h_hdr))
 
     # Top Goal Line (closed rectangle top border with goal mouth in center)
@@ -1075,6 +1077,8 @@ def render_tactical_pitch(
     a_hdr.append(f"■ {ev.away_team.name}", style=f"bold {a_color}")
     if lu.away.formation:
         a_hdr.append(f"  •  {lu.away.formation}", style="bold #cbd5e1")
+    if ev.away_manager:
+        a_hdr.append(f"  •  Coach: {ev.away_manager}", style="#94a3b8")
     pitch_lines.append(Align.center(a_hdr))
 
     status_tag = "Confirmed Lineups" if lu.confirmed else "Predicted / Preliminary Lineups"
@@ -1222,6 +1226,17 @@ def render_lineups_tab(bundle: FullMatchBundle, selected_player_idx: int = 0) ->
     squad_tbl = Table(expand=True, box=None, show_header=True, header_style="bold #38bdf8", padding=(0, 1))
     squad_tbl.add_column(f"▶ [HOME] {bundle.event.home_team.name} ({lu.home.formation or 'XI'})", ratio=1)
     squad_tbl.add_column(f"▶ [AWAY] {bundle.event.away_team.name} ({lu.away.formation or 'XI'})", ratio=1)
+
+    if bundle.event.home_manager or bundle.event.away_manager:
+        hm_txt = Text()
+        if bundle.event.home_manager:
+            hm_txt.append("  ◆ Coach: ", style="bold #ffd166")
+            hm_txt.append(f"{bundle.event.home_manager}\n", style="bold #f8fafc")
+        am_txt = Text()
+        if bundle.event.away_manager:
+            am_txt.append("  ◆ Coach: ", style="bold #ffd166")
+            am_txt.append(f"{bundle.event.away_manager}\n", style="bold #f8fafc")
+        squad_tbl.add_row(hm_txt, am_txt)
 
     h_starters = lu.home.starters
     a_starters = lu.away.starters

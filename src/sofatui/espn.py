@@ -27,6 +27,7 @@ from sofatui.models import (
     TeamLineup,
     TournamentInfo,
     enrich_team_identity,
+    resolve_team_manager,
     sanitize_hex_color,
 )
 
@@ -570,6 +571,8 @@ def parse_espn_scoreboard_event(ev: dict[str, Any], league_override: tuple[str, 
         prev_leg_score=prev_leg_score,
         series_note=series_note,
         attendance=attendance,
+        home_manager=resolve_team_manager(home_team.name, home_team.short_name),
+        away_manager=resolve_team_manager(away_team.name, away_team.short_name),
     )
 
 
