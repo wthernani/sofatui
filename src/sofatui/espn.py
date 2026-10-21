@@ -1045,16 +1045,20 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
         _mk_stat("interceptions", "Interceptions", _fval(h_stats_raw, "interceptions"), _fval(a_stats_raw, "interceptions")),
         _mk_stat("clearances", "Clearances", _fval(h_stats_raw, "totalClearance"), _fval(a_stats_raw, "totalClearance")),
     ]
-    period_stats = [
-        PeriodStats(
-            period="ALL",
-            groups=[
-                StatGroup("Match overview", overview_items),
-                StatGroup("Attacking & Passing", shots_Passes_items),
-                StatGroup("Defending", defending_items),
-            ],
-        )
-    ]
+    period_stats = (
+        []
+        if match_event.is_upcoming and not h_stats_raw and not a_stats_raw
+        else [
+            PeriodStats(
+                period="ALL",
+                groups=[
+                    StatGroup("Match overview", overview_items),
+                    StatGroup("Attacking & Passing", shots_Passes_items),
+                    StatGroup("Defending", defending_items),
+                ],
+            )
+        ]
+    )
 
     # 3. Parse Play-by-Play Commentary & Synthesize Attack Momentum Graph
     comments_chron: list[CommentItem] = []
@@ -1103,18 +1107,19 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
 
     # Smooth momentum curve so every minute 1..90 has natural dynamic flow across full height
     momentum_pts: list[MomentumPoint] = []
-    h_poss = _fval(h_stats_raw, "possessionPct") or 50.0
-    bias = (h_poss - 50.0) * 0.65
-    prev_v = 0.0
-    for m in range(1, 91):
-        raw_v = momentum_map.get(m, 0.0)
-        wave = math.sin(m * 0.42) * 36.0 + math.cos(m * 0.19) * 24.0 + bias
-        if abs(raw_v) < 1.0:
-            val = prev_v * 0.40 + wave * 0.60
-        else:
-            val = raw_v * 0.80 + prev_v * 0.20
-        prev_v = val
-        momentum_pts.append(MomentumPoint(minute=float(m), value=round(max(-98.0, min(98.0, val)), 1)))
+    if not match_event.is_upcoming:
+        h_poss = _fval(h_stats_raw, "possessionPct") or 50.0
+        bias = (h_poss - 50.0) * 0.65
+        prev_v = 0.0
+        for m in range(1, 91):
+            raw_v = momentum_map.get(m, 0.0)
+            wave = math.sin(m * 0.42) * 36.0 + math.cos(m * 0.19) * 24.0 + bias
+            if abs(raw_v) < 1.0:
+                val = prev_v * 0.40 + wave * 0.60
+            else:
+                val = raw_v * 0.80 + prev_v * 0.20
+            prev_v = val
+            momentum_pts.append(MomentumPoint(minute=float(m), value=round(max(-98.0, min(98.0, val)), 1)))
 
     # 4. Parse Rosters / Lineups & Compute SofaScore-Style Player Ratings
     home_lu = TeamLineup()
@@ -1150,7 +1155,8 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
 
     for r_side in summary.get("rosters") or []:
         side_str = str(r_side.get("homeAway") or "home")
-        formation = str(r_side.get("formation") or "4-3-3")
+        roster_entries = r_side.get("roster") or []
+        formation = str(r_side.get("formation") or ("4-3-3" if roster_entries else ""))
         is_home_side = side_str == "home"
         team_won = (match_event.winner_code == 1) if is_home_side else (match_event.winner_code == 2)
         team_drew = match_event.winner_code == 0 and match_event.is_finished

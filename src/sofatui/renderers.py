@@ -581,9 +581,9 @@ def render_momentum_graph(bundle: FullMatchBundle, width: int = 104) -> Panel:
     rows_text.append(Align.center(Text("".join(scale_chars), style="dim #94a3b8", no_wrap=True)))
 
     legend = Text()
-    legend.append(f"■ {ev.home_team.short_name} ({home_color.upper()})", style=f"bold {home_color}")
+    legend.append(f"■ {ev.home_team.short_name}", style=f"bold {home_color}")
     legend.append("     •     ", style="dim #64748b")
-    legend.append(f"■ {ev.away_team.short_name} ({away_color.upper()})", style=f"bold {away_color}")
+    legend.append(f"■ {ev.away_team.short_name}", style=f"bold {away_color}")
 
     return Panel(
         Group(Align.center(legend), *rows_text),
