@@ -12,7 +12,7 @@ from rich.align import Align
 from rich.console import Console, Group, RenderableType
 from rich.panel import Panel
 from rich.text import Text
-from textual import on, work
+from textual import events, on, work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -328,6 +328,11 @@ class SofaTuiApp(App[None]):
         self._previous_scores: dict[int, tuple[int | None, int | None]] = {}
         self._rebuilding_list: bool = False
         self._highlight_timer: Any = None
+        self._tab_hit_ranges: list[tuple[int, int, int]] = []
+        self._tabs_bar_cell_len: int = 0
+        self._filter_hit_ranges: list[tuple[int, int, str]] = []
+        self._date_hit_ranges: list[tuple[int, int, str]] = []
+        self._date_bar_cell_len: int = 0
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="top-bar"):
@@ -375,12 +380,29 @@ class SofaTuiApp(App[None]):
         date_str = self.active_date.strftime("%a %d %b %Y")
         is_today = self.active_date == datetime.date.today()
         date_txt = Text()
+        self._date_hit_ranges = []
+
+        d0_cell = date_txt.cell_len
+        d0_span = len(date_txt)
         date_txt.append("◀ [h]  ", style="dim #94a3b8")
+        date_txt.apply_meta({"@click": "app.prev_day"}, d0_span, len(date_txt))
+        self._date_hit_ranges.append((d0_cell, date_txt.cell_len, "prev_day"))
+
+        d1_cell = date_txt.cell_len
+        d1_span = len(date_txt)
         date_txt.append(f"◆ {date_str}", style="bold #f8fafc")
         if is_today:
             date_txt.append(" ")
             date_txt.append(" TODAY ", style="bold #0b132b on #00e676")
+        date_txt.apply_meta({"@click": "app.today"}, d1_span, len(date_txt))
+        self._date_hit_ranges.append((d1_cell, date_txt.cell_len, "today"))
+
+        d2_cell = date_txt.cell_len
+        d2_span = len(date_txt)
         date_txt.append("  [l] ▶", style="dim #94a3b8")
+        date_txt.apply_meta({"@click": "app.next_day"}, d2_span, len(date_txt))
+        self._date_hit_ranges.append((d2_cell, date_txt.cell_len, "next_day"))
+        self._date_bar_cell_len = date_txt.cell_len
         self.query_one("#date-status-label", Static).update(date_txt)
 
         # Filter pills strip
@@ -401,12 +423,17 @@ class SofaTuiApp(App[None]):
             ("starred", f"[s] ★ ({star_count})"),
         ]
         strip = Text()
+        self._filter_hit_ranges = []
         for key, label in pills:
+            f_start = strip.cell_len
+            f_span = len(strip)
             if self.active_filter == key:
                 style = "bold #0b132b on #00e676" if key != "live" else "bold #ffffff on #e11d48"
                 strip.append(f" {label} ", style=style)
             else:
                 strip.append(f" {label} ", style="dim #cbd5e1")
+            strip.apply_meta({"@click": f"app.filter_{key}"}, f_span, len(strip))
+            self._filter_hit_ranges.append((f_start, strip.cell_len, key))
             strip.append(" ")
         self.query_one("#filter-strip", Static).update(strip)
 
@@ -419,12 +446,18 @@ class SofaTuiApp(App[None]):
             (5, "5 ★ Standings & H2H"),
         ]
         t_bar = Text()
+        self._tab_hit_ranges = []
         for idx, t_label in tab_defs:
+            t_start = t_bar.cell_len
+            t_span = len(t_bar)
             if self.active_tab == idx:
                 t_bar.append(f"  {t_label}  ", style="bold #0b132b on #38bdf8")
             else:
                 t_bar.append(f"  {t_label}  ", style="bold #94a3b8 on #131b28")
+            t_bar.apply_meta({"@click": f"app.tab_{idx}"}, t_span, len(t_bar))
+            self._tab_hit_ranges.append((t_start, t_bar.cell_len, idx))
             t_bar.append(" ")
+        self._tabs_bar_cell_len = t_bar.cell_len
         self.query_one("#tabs-bar", Static).update(t_bar)
 
     def _set_status(self, message: str) -> None:
@@ -712,6 +745,33 @@ class SofaTuiApp(App[None]):
         else:
             self.notify(f"No football matches found on SofaScore for '{query}'.", severity="warning")
 
+    def on_click(self, event: events.Click) -> None:
+        if event.style.meta.get("@click"):
+            return
+        widget = event.widget
+        if widget is None:
+            return
+        if widget.id == "tabs-bar":
+            pad_left = max(0, (widget.size.width - self._tabs_bar_cell_len) // 2)
+            rel_x = event.x - pad_left
+            for start, end, idx in self._tab_hit_ranges:
+                if start <= rel_x <= end:
+                    getattr(self, f"action_tab_{idx}")()
+                    break
+        elif widget.id == "filter-strip":
+            rel_x = max(0, event.x - 1)
+            for start, end, key in self._filter_hit_ranges:
+                if start <= rel_x <= end:
+                    getattr(self, f"action_filter_{key}")()
+                    break
+        elif widget.id == "date-status-label":
+            pad_left = max(0, (widget.size.width - self._date_bar_cell_len) // 2)
+            rel_x = event.x - pad_left
+            for start, end, act in self._date_hit_ranges:
+                if start <= rel_x <= end:
+                    getattr(self, f"action_{act}")()
+                    break
+
     # Actions
     def action_tab_1(self) -> None:
         self.active_tab = 1
@@ -796,6 +856,12 @@ class SofaTuiApp(App[None]):
             self.active_tab = 2
         self._render_active_bundle()
 
+    def action_set_period(self, period: str) -> None:
+        self.stat_period = period
+        if self.active_tab != 2:
+            self.active_tab = 2
+        self._render_active_bundle()
+
     def action_next_player(self) -> None:
         self.selected_player_idx += 1
         if self.active_tab != 3:
@@ -804,6 +870,18 @@ class SofaTuiApp(App[None]):
 
     def action_prev_player(self) -> None:
         self.selected_player_idx = max(0, self.selected_player_idx - 1)
+        if self.active_tab != 3:
+            self.active_tab = 3
+        self._render_active_bundle()
+
+    def action_select_player(self, player_id: int) -> None:
+        if self._current_bundle and self._current_bundle.lineups:
+            lu = self._current_bundle.lineups
+            all_players = list(lu.home.players) + list(lu.away.players)
+            for idx, p in enumerate(all_players):
+                if p.id == player_id:
+                    self.selected_player_idx = idx
+                    break
         if self.active_tab != 3:
             self.active_tab = 3
         self._render_active_bundle()

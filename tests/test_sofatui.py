@@ -315,7 +315,33 @@ def test_textual_tui_headless_navigation_and_refresh() -> None:
             for key in ("3", "r", "2", "p", "3", "n", "4", "k", "5", "r", "1"):
                 await pilot.press(key)
                 await pilot.pause(0.25)
-            await pilot.pause(1.0)
+
+            # Test mouse clicks on all 5 Match Center tabs (#tabs-bar)
+            tabs_widget = app.query_one("#tabs-bar")
+            pad_left = max(0, (tabs_widget.size.width - app._tabs_bar_cell_len) // 2)
+            for start, end, idx in list(app._tab_hit_ranges):
+                click_x = pad_left + (start + end) // 2
+                await pilot.click("#tabs-bar", offset=(click_x, 0))
+                await pilot.pause(0.1)
+                assert app.active_tab == idx
+
+            # Also test clicking row 1 (border line) of #tabs-bar and #filter-strip
+            s2, e2, _ = app._tab_hit_ranges[1]
+            await pilot.click("#tabs-bar", offset=(pad_left + (s2 + e2) // 2, 1))
+            await pilot.pause(0.1)
+            assert app.active_tab == 2
+
+            fs_start, fs_end, _ = app._filter_hit_ranges[2]  # finished
+            await pilot.click("#filter-strip", offset=(1 + (fs_start + fs_end) // 2, 0))
+            await pilot.pause(0.1)
+            assert app.active_filter == "finished"
+
+            fa_start, fa_end, _ = app._filter_hit_ranges[0]  # all
+            await pilot.click("#filter-strip", offset=(1 + (fa_start + fa_end) // 2, 0))
+            await pilot.pause(0.1)
+            assert app.active_filter == "all"
+
+            await pilot.pause(0.5)
             assert len(app._all_matches) > 0
             assert app._current_bundle is not None
 

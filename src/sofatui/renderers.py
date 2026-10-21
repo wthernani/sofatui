@@ -799,12 +799,14 @@ def render_statistics_tab(bundle: FullMatchBundle, period: str = "ALL", width: i
     )
 
     # Period switcher bar
-    p_bar = Text("Period [press 'p' to switch]: ", style="dim #94a3b8")
+    p_bar = Text("Period [press 'p' or click to switch]: ", style="dim #94a3b8")
     for per in available_periods:
+        span_start = len(p_bar)
         if per == chosen_period:
             p_bar.append(f" [{per}] ", style="bold #0b132b on #00e676")
         else:
             p_bar.append(f"  {per}  ", style="bold #94a3b8 on #1e293b")
+        p_bar.apply_meta({"@click": f'app.set_period("{per}")'}, span_start, len(p_bar))
         p_bar.append(" ")
 
     panels: list[RenderableType] = [Align.center(p_bar)]
@@ -932,6 +934,8 @@ def _format_pitch_player(p: PlayerLineup, motm_id: int, selected_id: int) -> Tex
             t.append(" ▼", style="bold #f87171")
     t.append(" ")
     t.append_text(format_rating_badge(p.rating, is_motm=(p.id == motm_id and (p.rating or 0) >= 7.0)))
+    if p.id:
+        t.apply_meta({"@click": f"app.select_player({p.id})"}, 0, len(t))
     return t
 
 
@@ -1186,6 +1190,8 @@ def _format_squad_row(p: PlayerLineup, motm_id: int, selected_id: int) -> Text:
             line.append(f" ✚▼{p.subbed_out}' (Inj)", style="bold #ff1744")
         else:
             line.append(f" ▼{p.subbed_out}'", style="bold #f87171")
+    if p.id:
+        line.apply_meta({"@click": f"app.select_player({p.id})"}, 0, len(line))
     return line
 
 
