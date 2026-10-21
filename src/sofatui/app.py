@@ -438,15 +438,21 @@ class SofaTuiApp(App[None]):
         if not silent:
             self.call_from_thread(self._set_status, f"Fetching matches for {self.active_date.isoformat()}...")
         t0 = time.monotonic()
-        if self.active_filter == "live":
-            matches = self.client.get_live_matches(force=force)
-        else:
-            matches = self.client.get_matches_for_date(self.active_date.isoformat(), force=force)
+        matches = self.client.get_matches_for_date(self.active_date.isoformat(), force=force)
+        if self.active_filter == "live" and self.active_date == datetime.date.today():
+            live_matches = self.client.get_live_matches(force=force)
+            if live_matches:
+                by_id = {m.id: m for m in matches}
+                for lm in live_matches:
+                    by_id[lm.id] = lm
+                matches = list(by_id.values())
         elapsed_ms = (time.monotonic() - t0) * 1000.0
         self.call_from_thread(self._on_matches_loaded, matches, elapsed_ms, silent)
 
     def _on_matches_loaded(self, matches: list[MatchEvent], elapsed_ms: float, silent: bool) -> None:
         if not matches and self._all_matches:
+            self._rebuild_option_list(preserve_selection=True)
+            self._update_header_bars()
             self._set_status("Refresh returned no new events; keeping current match feed.")
             return
 
@@ -513,10 +519,15 @@ class SofaTuiApp(App[None]):
             self._displayed_matches.clear()
 
             if not filtered:
+                empty_msg = (
+                    "No live matches in progress right now. Press 'a' for All or 'h'/'l' to change date."
+                    if self.active_filter == "live"
+                    else "No matches match the current filter. Press 'a' for All or 'h'/'l' to change date."
+                )
                 opt_list.set_options(
                     [
                         Option(
-                            Text("No matches match the current filter. Press 'a' for All or 'h'/'l' to change date.", style="dim #94a3b8"),
+                            Text(empty_msg, style="dim #94a3b8"),
                             id="empty",
                             disabled=True,
                         )
@@ -723,18 +734,16 @@ class SofaTuiApp(App[None]):
         self._render_active_bundle()
 
     def action_filter_all(self) -> None:
-        was_live = self.active_filter == "live"
         self.active_filter = "all"
         self._update_header_bars()
-        if was_live:
-            self.load_matches_worker(force=False)
-        else:
-            self._rebuild_option_list()
+        self._rebuild_option_list()
 
     def action_filter_live(self) -> None:
         self.active_filter = "live"
         self._update_header_bars()
-        self.load_matches_worker(force=True)
+        self._rebuild_option_list()
+        if self.active_date == datetime.date.today():
+            self.load_matches_worker(force=True)
 
     def action_filter_finished(self) -> None:
         self.active_filter = "finished"

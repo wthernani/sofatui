@@ -303,8 +303,16 @@ def test_textual_tui_headless_navigation_and_refresh() -> None:
                     break
                 await pilot.pause(0.25)
             assert len(app._all_matches) > 0
-            # Press 'h' (previous day 2026-10-20), 'r' (refresh), and cycle through all tabs
-            for key in ("h", "3", "r", "2", "p", "3", "n", "4", "k", "5", "r", "1"):
+            # Press 'h' (previous day 2026-10-20), 'v' (live filter -> 0 matches), 'a' (all), and cycle tabs
+            await pilot.press("h")
+            await pilot.pause(0.5)
+            await pilot.press("v")
+            await pilot.pause(0.2)
+            assert len(app._displayed_matches) == sum(1 for m in app._all_matches if m.is_live)
+            await pilot.press("a")
+            await pilot.pause(0.2)
+            assert len(app._displayed_matches) == len(app._all_matches)
+            for key in ("3", "r", "2", "p", "3", "n", "4", "k", "5", "r", "1"):
                 await pilot.press(key)
                 await pilot.pause(0.25)
             await pilot.pause(1.0)
