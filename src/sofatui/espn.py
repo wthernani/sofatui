@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 import math
 import re
+import unicodedata
 from typing import Any
 
 from sofatui.models import (
@@ -1072,6 +1073,78 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
     comments_chron: list[CommentItem] = []
     momentum_map: dict[int, float] = {m: 0.0 for m in range(1, 91)}
 
+    def _norm_team(s: str) -> str:
+        s_ascii = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+        return re.sub(r"[^a-z0-9]+", " ", s_ascii.lower()).strip()
+
+    def _team_words(s: str) -> set[str]:
+        stop = {"fc", "sc", "cf", "ac", "afc", "bk", "fk", "sk", "if", "cd", "ud", "sd", "rc", "rcd", "real", "club", "de", "the"}
+        return {w for w in _norm_team(s).split() if len(w) >= 3 and w not in stop}
+
+    h_norms = {_norm_team(home_name), _norm_team(match_event.home_team.short_name), _norm_team(match_event.home_team.name_code)} - {""}
+    a_norms = {_norm_team(away_name), _norm_team(match_event.away_team.short_name), _norm_team(match_event.away_team.name_code)} - {""}
+    h_words = _team_words(home_name) | _team_words(match_event.home_team.short_name)
+    a_words = _team_words(away_name) | _team_words(match_event.away_team.short_name)
+
+    def _resolve_acting_side(team_label: str) -> int:
+        nt = _norm_team(team_label)
+        if not nt:
+            return 0
+        h_hit = any(nt == hn or (len(hn) >= 4 and (hn in nt or nt in hn)) for hn in h_norms)
+        a_hit = any(nt == an or (len(an) >= 4 and (an in nt or nt in an)) for an in a_norms)
+        if h_hit and not a_hit:
+            return 1
+        if a_hit and not h_hit:
+            return -1
+        tw = _team_words(team_label)
+        h_ov = len(tw & h_words)
+        a_ov = len(tw & a_words)
+        if h_ov > a_ov:
+            return 1
+        if a_ov > h_ov:
+            return -1
+        return 0
+
+    def _extract_attack_impulse(txt: str, ctype: str) -> tuple[int, float]:
+        tl = txt.lower()
+        if ctype in ("foul", "yellowCard", "redCard", "substitution", "matchEnded", "comment"):
+            return 0, 0.0
+        if ctype == "freeKickWon":
+            if "defensive half" in tl:
+                return 0, 0.0
+            weight = 20.0
+        elif ctype in ("goal", "penaltyGoal"):
+            weight = 65.0
+        elif ctype == "post":
+            weight = 50.0
+        elif ctype == "attemptSaved":
+            weight = 42.0
+        elif ctype in ("attemptMissed", "attemptBlocked", "corner"):
+            weight = 28.0
+        elif ctype == "offside":
+            weight = 14.0
+        else:
+            return 0, 0.0
+
+        # 1. "Corner, <Team>." or "Offside, <Team>."
+        m_prefix = re.match(r"^(?:Corner|Offside),\s*([^.]+)\.", txt, re.IGNORECASE)
+        if m_prefix:
+            return _resolve_acting_side(m_prefix.group(1)), weight
+
+        # 2. "Own Goal by <Player> (<DefendingTeam>), ..."
+        if tl.startswith("own goal by"):
+            m_paren = re.search(r"\(([^)]+)\)", txt)
+            if m_paren:
+                return -_resolve_acting_side(m_paren.group(1)), weight
+
+        # 3. Strip "Goal! TeamA X, TeamB Y." prefix so the first (<Team>) is the acting player's team
+        body = re.sub(r"^Goal!.*?\.\s*", "", txt, flags=re.IGNORECASE)
+        m_paren = re.search(r"\(([^)]+)\)", body)
+        if m_paren:
+            return _resolve_acting_side(m_paren.group(1)), weight
+
+        return 0, 0.0
+
     for idx, c_raw in enumerate(summary.get("commentary") or []):
         txt = str(c_raw.get("text") or "").strip()
         if not txt:
@@ -1091,24 +1164,13 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
             )
         )
 
-        # Momentum contribution based on team mentioned in commentary
-        if 1 <= mn <= 95:
+        # Momentum contribution based strictly on the acting team of attacking plays
+        if 1 <= mn <= 120:
             b_min = min(90, mn)
-            tl = txt.lower()
-            is_h = match_event.home_team.short_name.lower() in tl or home_name.lower() in tl
-            is_a = match_event.away_team.short_name.lower() in tl or away_name.lower() in tl
-            weight = 14.0
-            if ctype in ("goal", "penaltyGoal"):
-                weight = 65.0
-            elif ctype in ("attemptSaved", "post"):
-                weight = 42.0
-            elif ctype in ("attemptMissed", "attemptBlocked", "corner"):
-                weight = 28.0
-            elif ctype == "freeKickWon":
-                weight = 18.0
-            if is_h and not is_a:
+            side, weight = _extract_attack_impulse(txt, ctype)
+            if side == 1:
                 momentum_map[b_min] = min(95.0, momentum_map.get(b_min, 0.0) + weight)
-            elif is_a and not is_h:
+            elif side == -1:
                 momentum_map[b_min] = max(-95.0, momentum_map.get(b_min, 0.0) - weight)
 
     comments = list(reversed(comments_chron))
@@ -1126,18 +1188,17 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
             1,
             min(90, cur_clock_min or max((c.time for c in comments_chron), default=45)),
         )
-        h_poss = _fval(h_stats_raw, "possessionPct") or 50.0
-        poss_baseline = (h_poss - 50.0) * 0.45
         for m in range(1, max_played_min + 1):
             w_cur = momentum_map.get(m, 0.0)
-            w_prev1 = momentum_map.get(m - 1, 0.0) * 0.55
-            w_next1 = momentum_map.get(m + 1, 0.0) * 0.35 if m < max_played_min else 0.0
-            w_prev2 = momentum_map.get(m - 2, 0.0) * 0.25
-            combined = w_cur + w_prev1 + w_next1 + w_prev2
-            if abs(combined) < 0.5:
-                combined = poss_baseline
+            w_prev1 = momentum_map.get(m - 1, 0.0)
+            w_next1 = momentum_map.get(m + 1, 0.0) if m < max_played_min else 0.0
+            if abs(w_cur) > 0.1:
+                # Reinforce with same-side pressure from adjacent minutes without cancelling opposite-side spikes
+                same_prev = w_prev1 * 0.35 if (w_cur * w_prev1 > 0) else 0.0
+                same_next = w_next1 * 0.25 if (w_cur * w_next1 > 0) else 0.0
+                combined = w_cur + same_prev + same_next
             else:
-                combined += poss_baseline * 0.3
+                combined = w_prev1 * 0.45 + w_next1 * 0.30
             momentum_pts.append(MomentumPoint(minute=float(m), value=round(max(-98.0, min(98.0, combined)), 1)))
 
     # 4. Parse Rosters / Lineups & Compute SofaScore-Style Player Ratings
