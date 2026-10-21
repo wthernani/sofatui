@@ -1,5 +1,11 @@
 # ⚽ SofaTUI — SofaScore in Your Terminal
 
+[![Built with Gemini 4 Argon High](https://img.shields.io/badge/AI-Gemini%204%20Argon%20High-4285F4?style=flat-square&logo=googlegemini&logoColor=white)](https://deepmind.google/technologies/gemini/)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![Textual TUI](https://img.shields.io/badge/TUI-Textual%20%2B%20Rich-00e676?style=flat-square)](https://textual.textualize.io/)
+[![Arch Linux PKGBUILD](https://img.shields.io/badge/Arch%20Linux-PKGBUILD-1793D1?style=flat-square&logo=archlinux&logoColor=white)](PKGBUILD)
+[![License: MIT](https://img.shields.io/badge/License-MIT-ffd166?style=flat-square)](LICENSE)
+
 A full-featured, fast, SofaScore-style Terminal User Interface (TUI) for live football scores, match statistics, Attack Momentum graphs, 2D tactical pitch formations, SofaScore player ratings, play-by-play commentary, and live league standings.
 
 ![SofaTUI Animated Demo](assets/demo.gif)
@@ -16,13 +22,17 @@ A full-featured, fast, SofaScore-style Terminal User Interface (TUI) for live fo
 
 ## ✨ Features
 
-- **Real-Time SofaScore Data Engine**:
-  - Live matches worldwide (`/sport/football/events/live`) & daily scheduled fixtures across top leagues (UEFA Champions League, Europa League, Premier League, LaLiga, Serie A, Bundesliga, Ligue 1, Liga Portugal, Brasileirão, etc.).
-  - Direct sub-15ms UDP IPv4 DNS resolution (`1.1.1.1`/`8.8.8.8`) + Chrome TLS impersonation so requests complete in ~100–300ms even when local `/etc/resolv.conf` VPN resolvers are offline.
+- **Dual-Engine Real-Time Football Data (SofaScore + ESPN)**:
+  - Live matches worldwide & daily scheduled fixtures across 100+ leagues (UEFA Champions League, Europa League, Conference League, Copa Libertadores, Copa Sudamericana, Premier League, LaLiga, Serie A, Bundesliga, Ligue 1, Liga Portugal, Brasileirão, etc.).
+  - Low-latency HTTP pipeline with automatic cross-provider failover, in-memory bundle caching, and XDG persistent disk caching (`~/.cache/sofatui/`).
+- **Rich Scoreboard & Match Header**:
+  - Low-res Unicode half-block **club crests** (`6×5` sub-pixel rendering) and **club country codes** (`FRA • France`, `ESP • Spain`, `POR • Portugal`).
+  - **Competition stage, leg & aggregate scores** for two-legged knockout ties (`Semifinals • 2nd Leg • AGG: 2 - 3 (1st Leg: 1 - 0)`).
+  - **Match referee & nationality** (`⚖ Ref: Michael Oliver (ENG)`), venue, attendance, halftime/stoppage time (`1H +3' / 2H +3'`), and expected goals (`xG`).
 - **5-Tab SofaScore Match Center**:
   1. **`[1]` ⚡ Overview & Attack Momentum**:
-     - **SofaScore Attack Momentum Graph**: Minute-by-minute (`1'`–`90+'`) bi-directional pressure chart with goal (`⚽`) and red card (`🟥`) markers.
-     - **Chronological Match Timeline**: 1st Half / 2nd Half / Extra Time incidents (Goals, Assists, Shot xG, Yellow/Red Cards, Substitutions, VAR decisions, Added Time).
+     - **SofaScore Attack Momentum Graph**: Full-width minute-by-minute (`1'`–`90+'`) bi-directional pressure chart colored in each club's **actual jersey colors** (with automatic contrast resolution) and goal (`⚽`) / card (`🟥`) markers.
+     - **Chronological Match Timeline**: 1st Half / 2nd Half / Extra Time incidents including Goals, Assists, Yellow/Red Cards, **Injury-Forced (`✚ INJ` / `✚▼`) vs Tactical (`▲` / `▼`) Substitutions**, VAR decisions, and **Announced Stoppage / Additional Time (`+3'`)**.
      - **Team Form & H2H**: Recent 5-match `W`/`D`/`L` badges and historical Head-to-Head record.
   2. **`[2]` 📊 Full Match Statistics**:
      - Switch between **`ALL`**, **`1ST`**, and **`2ND`** half (`p` key).
@@ -101,3 +111,10 @@ Or via a local virtualenv:
 | `r` | Refresh live scores & current match details |
 | `?` | Open keyboard shortcuts help modal |
 | `q` | Quit SofaTUI |
+
+## 🤖 Credits & Stack
+
+- **AI Pair Programmer & Architecture**: **Gemini 4 Argon High** (Google DeepMind Antigravity)
+- **Language & Runtime**: Python 3.11+ (`Textual`, `Rich`, `curl_cffi`, `httpx`)
+- **Packaging**: Arch Linux native `PKGBUILD` (`pacman` / `makepkg`)
+- **License**: [MIT](LICENSE)
