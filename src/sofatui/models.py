@@ -219,12 +219,27 @@ def enrich_team_identity(
             break
 
     if not team.country:
-        if venue_country:
-            team.country = venue_country
-        elif category_name and category_name.lower() not in (
-            "europe", "south america", "north america", "asia", "africa", "world", "international", "football"
-        ):
+        # Check if the team itself is a national / youth national team (e.g. 'Canada U17', 'Norway U17', 'China PR U17')
+        cleaned_nat = nl
+        for tok in (" u17", " u19", " u20", " u21", " u23", " women", " pr", " w"):
+            if cleaned_nat.endswith(tok):
+                cleaned_nat = cleaned_nat[: -len(tok)].strip()
+        if cleaned_nat in COUNTRY_ALPHA3_MAP:
+            team.country = cleaned_nat.title() if cleaned_nat != "usa" else "USA"
+            team.country_code = COUNTRY_ALPHA3_MAP[cleaned_nat]
+        elif sl in COUNTRY_ALPHA3_MAP:
+            team.country = sl.title() if sl != "usa" else "USA"
+            team.country_code = COUNTRY_ALPHA3_MAP[sl]
+
+    continental_cats = {
+        "europe", "south america", "north america", "asia", "africa",
+        "world", "international", "concacaf", "football",
+    }
+    if not team.country:
+        if category_name and category_name.lower() not in continental_cats:
             team.country = category_name
+        elif venue_country and category_name.lower() not in ("world", "international"):
+            team.country = venue_country
 
     if team.country and not team.country_code:
         team.country_code = COUNTRY_ALPHA3_MAP.get(team.country.lower(), team.country[:3].upper())

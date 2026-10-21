@@ -413,21 +413,29 @@ def parse_espn_scoreboard_event(ev: dict[str, Any], league_override: tuple[str, 
     a_ht: int | None = None
     p1_max_added = 0
     p2_max_added = 0
+    cur_period = int(st_raw.get("period") or 1)
+    reached_ht = (
+        status_type == "finished"
+        or cur_period >= 2
+        or "ht" in status_desc.lower()
+        or "half" in status_desc.lower()
+    )
     if status_type in ("inprogress", "finished") and details:
-        h_ht = 0
-        a_ht = 0
+        if reached_ht:
+            h_ht = 0
+            a_ht = 0
         for d in details:
             mn, added = _parse_minute_str(str((d.get("clock") or {}).get("displayValue") or ""))
             if mn == 45 and added > p1_max_added:
                 p1_max_added = added
             elif mn == 90 and added > p2_max_added:
                 p2_max_added = added
-            if d.get("scoringPlay") and not d.get("shootout"):
+            if reached_ht and d.get("scoringPlay") and not d.get("shootout"):
                 if 0 < mn <= 45:
                     if str((d.get("team") or {}).get("id")) == home_tid:
-                        h_ht += 1
+                        h_ht = (h_ht or 0) + 1
                     elif str((d.get("team") or {}).get("id")) == away_tid:
-                        a_ht += 1
+                        a_ht = (a_ht or 0) + 1
 
     h_pen = _to_int(home_c.get("shootoutScore"))
     a_pen = _to_int(away_c.get("shootoutScore"))
@@ -1105,21 +1113,32 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
 
     comments = list(reversed(comments_chron))
 
-    # Smooth momentum curve so every minute 1..90 has natural dynamic flow across full height
+    # Build Attack Momentum strictly when real play-by-play coverage exists (no fake sine-wave on limited-coverage games)
     momentum_pts: list[MomentumPoint] = []
-    if not match_event.is_upcoming:
+    pbp_attack_events = sum(
+        1
+        for c in comments_chron
+        if c.type in ("attemptSaved", "attemptMissed", "attemptBlocked", "corner", "freeKickWon", "post", "offside")
+    )
+    if not match_event.is_upcoming and pbp_attack_events >= 5:
+        cur_clock_min, _ = _parse_minute_str(match_event.status_description)
+        max_played_min = 90 if match_event.is_finished else max(
+            1,
+            min(90, cur_clock_min or max((c.time for c in comments_chron), default=45)),
+        )
         h_poss = _fval(h_stats_raw, "possessionPct") or 50.0
-        bias = (h_poss - 50.0) * 0.65
-        prev_v = 0.0
-        for m in range(1, 91):
-            raw_v = momentum_map.get(m, 0.0)
-            wave = math.sin(m * 0.42) * 36.0 + math.cos(m * 0.19) * 24.0 + bias
-            if abs(raw_v) < 1.0:
-                val = prev_v * 0.40 + wave * 0.60
+        poss_baseline = (h_poss - 50.0) * 0.45
+        for m in range(1, max_played_min + 1):
+            w_cur = momentum_map.get(m, 0.0)
+            w_prev1 = momentum_map.get(m - 1, 0.0) * 0.55
+            w_next1 = momentum_map.get(m + 1, 0.0) * 0.35 if m < max_played_min else 0.0
+            w_prev2 = momentum_map.get(m - 2, 0.0) * 0.25
+            combined = w_cur + w_prev1 + w_next1 + w_prev2
+            if abs(combined) < 0.5:
+                combined = poss_baseline
             else:
-                val = raw_v * 0.80 + prev_v * 0.20
-            prev_v = val
-            momentum_pts.append(MomentumPoint(minute=float(m), value=round(max(-98.0, min(98.0, val)), 1)))
+                combined += poss_baseline * 0.3
+            momentum_pts.append(MomentumPoint(minute=float(m), value=round(max(-98.0, min(98.0, combined)), 1)))
 
     # 4. Parse Rosters / Lineups & Compute SofaScore-Style Player Ratings
     home_lu = TeamLineup()
