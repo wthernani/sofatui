@@ -32,9 +32,16 @@ from sofatui.models import (
 
 # ESPN League ID (from uid 's:600~l:<id>~e:...') -> (Category Name, League Name, Priority)
 ESPN_LEAGUE_CATALOG: dict[int, tuple[str, str, int]] = {
+    # UEFA & FIFA International / Continental
     775: ("Europe", "UEFA Champions League", 10000),
+    776: ("Europe", "UEFA Europa League", 9600),
     780: ("Europe", "UEFA Europa League", 9600),
     20296: ("Europe", "UEFA Conference League", 9400),
+    2395: ("Europe", "UEFA Nations League", 9350),
+    19483: ("Europe", "UEFA Women's Champions League", 8500),
+    24079: ("Europe", "UEFA Women's Europa Cup", 8450),
+    20649: ("Europe", "FIFA Women's World Cup Qualifying (UEFA)", 8200),
+    # Top 5 + Major European Domestic Leagues
     700: ("England", "Premier League", 9200),
     740: ("Spain", "LaLiga", 9000),
     730: ("Italy", "Serie A", 8900),
@@ -42,26 +49,148 @@ ESPN_LEAGUE_CATALOG: dict[int, tuple[str, str, int]] = {
     710: ("France", "Ligue 1", 8700),
     715: ("Portugal", "Liga Portugal Betclic", 8600),
     725: ("Netherlands", "Eredivisie", 8400),
-    640: ("Brazil", "Brasileirão Série A", 8300),
-    5453: ("South America", "CONMEBOL Libertadores", 8250),
-    5454: ("South America", "CONMEBOL Sudamericana", 8150),
+    # CONMEBOL & Major Americas
+    783: ("South America", "CONMEBOL Libertadores", 8350),
+    5453: ("South America", "CONMEBOL Libertadores", 8350),
+    5454: ("South America", "CONMEBOL Sudamericana", 8250),
+    630: ("Brazil", "Brasileirão Série A", 8300),
+    745: ("Argentina", "Liga Profesional", 8150),
+    655: ("Argentina", "Liga Profesional", 8150),
+    # Major Domestic Cups
     702: ("England", "FA Cup", 8100),
-    704: ("England", "EFL Cup", 8050),
+    23480: ("England", "FA Cup Qualifying", 6400),
+    3920: ("England", "EFL Carabao Cup", 8050),
+    704: ("England", "EFL Carabao Cup", 8050),
+    18481: ("England", "EFL Trophy", 6650),
     742: ("Spain", "Copa del Rey", 8000),
+    20381: ("Spain", "Copa de la Reina", 6950),
     732: ("Italy", "Coppa Italia", 7950),
+    3954: ("Germany", "DFB-Pokal", 7900),
     722: ("Germany", "DFB-Pokal", 7900),
-    3914: ("England", "Championship", 7700),
-    755: ("Turkey", "Trendyol Süper Lig", 7600),
+    20922: ("Portugal", "Taça de Portugal", 7880),
+    3957: ("Netherlands", "KNVB Beker", 7850),
+    20115: ("Netherlands", "KNVB Beker Vrouwen", 6300),
+    3959: ("Scotland", "Scottish Cup", 7150),
+    5331: ("Scotland", "SPFL Challenge Cup", 6250),
+    8107: ("Argentina", "Copa Argentina", 7280),
+    5337: ("USA", "U.S. Open Cup", 7100),
+    # Other European 1st & 2nd Divisions
+    3914: ("England", "Championship", 7800),
+    3946: ("Turkey", "Trendyol Süper Lig", 7650),
+    755: ("Turkey", "Trendyol Süper Lig", 7650),
+    735: ("Scotland", "Premiership", 7600),
+    3901: ("Belgium", "Pro League", 7580),
+    3907: ("Austria", "Bundesliga", 7560),
+    3955: ("Greece", "Super League", 7540),
+    3913: ("Denmark", "Superliga", 7520),
+    3960: ("Norway", "Eliteserien", 7480),
+    3945: ("Sweden", "Allsvenskan", 7460),
+    3939: ("Russia", "Premier League", 7420),
+    3927: ("Germany", "2. Bundesliga", 7380),
+    3921: ("Spain", "LaLiga 2", 7360),
+    3931: ("Italy", "Serie B", 7340),
+    3926: ("France", "Ligue 2", 7320),
+    3933: ("Netherlands", "Keuken Kampioen Divisie", 7120),
+    3940: ("Scotland", "Championship", 6900),
+    3915: ("England", "League One", 6850),
+    3916: ("England", "League Two", 6750),
+    3917: ("England", "National League", 6600),
+    # Middle East, Asia, Africa & Oceania
     21231: ("Saudi Arabia", "Saudi Pro League", 7500),
+    3902: ("Asia", "AFC Champions League Elite", 7490),
+    2466: ("Asia", "AFC Champions League Two", 7180),
+    750: ("Japan", "J1 League", 7450),
+    2391: ("Africa", "CAF Champions League", 7440),
+    18000: ("Africa", "CAF Confederation Cup", 7160),
+    8376: ("China", "Chinese Super League", 6980),
+    3906: ("Australia", "A-League Men", 6960),
+    3937: ("South Africa", "Premiership", 6920),
+    8316: ("India", "Indian Super League", 6880),
+    18505: ("India", "I-League", 6200),
+    # Americas (North, Central & South)
     770: ("USA", "MLS", 7400),
     760: ("Mexico", "Liga MX", 7350),
-    655: ("Argentina", "Liga Profesional", 7300),
-    735: ("Scotland", "Premiership", 7200),
-    8097: ("England", "Women's Super League", 7000),
-    3915: ("England", "League One", 6800),
-    3916: ("England", "League Two", 6700),
-    4007: ("Brazil", "Série B", 6600),
-    650: ("Colombia", "Primera A", 6500),
+    4007: ("Brazil", "Brasileirão Série B", 6700),
+    650: ("Colombia", "Primera A", 6680),
+    8313: ("Colombia", "Copa Colombia", 6480),
+    640: ("Chile", "Primera División", 6660),
+    8312: ("Chile", "Copa Chile", 6460),
+    680: ("Uruguay", "Liga AUF Uruguaya", 6640),
+    670: ("Peru", "Liga 1", 6620),
+    660: ("Ecuador", "LigaPro", 6610),
+    3934: ("Paraguay", "Primera División", 6580),
+    3949: ("Venezuela", "Liga FUTVE", 6560),
+    620: ("Bolivia", "Liga Profesional", 6540),
+    23284: ("Bolivia", "Copa Bolivia", 6380),
+    19267: ("CONCACAF", "Nations League", 7250),
+    22947: ("CONCACAF", "Central American Cup", 6520),
+    4005: ("Costa Rica", "Liga FPD", 6440),
+    3928: ("Guatemala", "Liga Nacional", 6420),
+    3929: ("Honduras", "Liga Nacional", 6410),
+    3943: ("El Salvador", "Primera División", 6405),
+    3932: ("Mexico", "Liga de Expansión MX", 6500),
+    3903: ("Argentina", "Primera Nacional", 6490),
+    3904: ("Argentina", "Primera B Metropolitana", 6150),
+    4002: ("USA", "USL Championship", 6450),
+    19915: ("USA", "USL League One", 6180),
+    22059: ("USA", "USL Cup", 6170),
+    # Women's & Youth / Collegiate / Friendlies
+    8097: ("England", "Women's Super League", 7050),
+    20226: ("England", "Women's FA Cup", 6360),
+    23390: ("England", "WSL League Cup", 6350),
+    8301: ("USA", "NWSL", 7040),
+    23633: ("USA", "USL Super League", 6340),
+    20956: ("Spain", "Liga F", 7020),
+    20955: ("France", "Première Ligue", 7010),
+    19945: ("Netherlands", "Vrouwen Eredivisie", 6330),
+    23541: ("Mexico", "Liga MX Femenil", 6320),
+    18992: ("Australia", "A-League Women", 6310),
+    23286: ("Canada", "Northern Super League", 6305),
+    24081: ("World", "FIFA Women's Champions Cup", 7080),
+    20865: ("World", "FIFA U-17 Women's World Cup", 7060),
+    3922: ("World", "International Friendly", 7200),
+    3923: ("World", "Women's International Friendly", 6800),
+    19834: ("World", "Club Friendly", 6100),
+    5487: ("USA", "NCAA Men's Soccer", 5800),
+    5499: ("USA", "NCAA Women's Soccer", 5750),
+}
+
+DEMONYM_TO_COUNTRY: dict[str, str] = {
+    "English": "England",
+    "Spanish": "Spain",
+    "Italian": "Italy",
+    "German": "Germany",
+    "French": "France",
+    "Portuguese": "Portugal",
+    "Dutch": "Netherlands",
+    "Brazilian": "Brazil",
+    "Argentine": "Argentina",
+    "Scottish": "Scotland",
+    "Mexican": "Mexico",
+    "Japanese": "Japan",
+    "Turkish": "Turkey",
+    "Belgian": "Belgium",
+    "Austrian": "Austria",
+    "Danish": "Denmark",
+    "Swedish": "Sweden",
+    "Norwegian": "Norway",
+    "Greek": "Greece",
+    "Russian": "Russia",
+    "Chinese": "China",
+    "Indian": "India",
+    "Australian": "Australia",
+    "Colombian": "Colombia",
+    "Chilean": "Chile",
+    "Peruvian": "Peru",
+    "Paraguayan": "Paraguay",
+    "Venezuelan": "Venezuela",
+    "Bolivian": "Bolivia",
+    "Uruguayan": "Uruguay",
+    "Costa Rican": "Costa Rica",
+    "Guatemalan": "Guatemala",
+    "Honduran": "Honduras",
+    "Salvadoran": "El Salvador",
+    "South African": "South Africa",
 }
 
 
@@ -365,17 +494,22 @@ def parse_espn_scoreboard_event(ev: dict[str, Any], league_override: tuple[str, 
     elif away_c.get("winner") is True or (h_cur is not None and a_cur is not None and a_cur > h_cur):
         winner_code = 2
 
-    lid = _extract_league_id(str(ev.get("uid") or comp.get("uid") or ""))
-    cat_name, lg_name, prio = ESPN_LEAGUE_CATALOG.get(lid, ("World", "Football League", 500))
-    if league_override:
-        cat_name, lg_name = league_override
-
     venue_raw = comp.get("venue") or ev.get("venue") or {}
     venue_name = str(venue_raw.get("fullName") or "")
     venue_addr = venue_raw.get("address") or {}
     venue_city = str(venue_addr.get("city") or "")
     venue_country = str(venue_addr.get("country") or "")
     attendance = _to_int(comp.get("attendance"))
+
+    lid = _extract_league_id(str(ev.get("uid") or comp.get("uid") or ""))
+    if lid in ESPN_LEAGUE_CATALOG:
+        cat_name, lg_name, prio = ESPN_LEAGUE_CATALOG[lid]
+    else:
+        cat_name = venue_country if venue_country else "International"
+        lg_name = f"{venue_country} League" if venue_country else f"Competition #{lid}"
+        prio = 500
+    if league_override:
+        cat_name, lg_name = league_override
 
     enrich_team_identity(home_team, cat_name, venue_country)
     enrich_team_identity(away_team, cat_name)
@@ -542,36 +676,41 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
         return None
     comp = comps[0]
 
+    uid_str = str(header.get("uid") or comp.get("uid") or "")
+    lid = _extract_league_id(uid_str)
     lg_raw = header.get("league") or {}
     lg_name = str(lg_raw.get("name") or "")
-    if "UEFA" in lg_name:
-        cat_name = "Europe"
-    elif "CONMEBOL" in lg_name or "Libertadores" in lg_name or "Sudamericana" in lg_name:
-        cat_name = "South America"
-    elif lg_name.startswith("English "):
-        cat_name, lg_name = "England", lg_name.replace("English ", "", 1)
-    elif lg_name.startswith("Spanish "):
-        cat_name, lg_name = "Spain", lg_name.replace("Spanish ", "", 1)
-    elif lg_name.startswith("Italian "):
-        cat_name, lg_name = "Italy", lg_name.replace("Italian ", "", 1)
-    elif lg_name.startswith("German "):
-        cat_name, lg_name = "Germany", lg_name.replace("German ", "", 1)
-    elif lg_name.startswith("French "):
-        cat_name, lg_name = "France", lg_name.replace("French ", "", 1)
-    elif lg_name.startswith("Portuguese "):
-        cat_name, lg_name = "Portugal", lg_name.replace("Portuguese ", "", 1)
-    elif lg_name.startswith("Dutch "):
-        cat_name, lg_name = "Netherlands", lg_name.replace("Dutch ", "", 1)
-    elif lg_name.startswith("Brazilian "):
-        cat_name, lg_name = "Brazil", lg_name.replace("Brazilian ", "", 1)
-    elif lg_name.startswith("Argentine "):
-        cat_name, lg_name = "Argentina", lg_name.replace("Argentine ", "", 1)
+
+    if lid in ESPN_LEAGUE_CATALOG:
+        cat_name, lg_name, _ = ESPN_LEAGUE_CATALOG[lid]
     else:
-        cat_name = lg_name.split(" ")[0] if " " in lg_name else "Football"
+        cat_name = "International"
+        if "UEFA" in lg_name:
+            cat_name = "Europe"
+        elif "CONMEBOL" in lg_name or "Libertadores" in lg_name or "Sudamericana" in lg_name:
+            cat_name = "South America"
+        elif "CAF" in lg_name:
+            cat_name = "Africa"
+        elif "AFC" in lg_name:
+            cat_name = "Asia"
+        elif "Concacaf" in lg_name or "CONCACAF" in lg_name:
+            cat_name = "CONCACAF"
+        elif "FIFA" in lg_name or "Friendly" in lg_name:
+            cat_name = "World"
+        else:
+            for dem, country_name in DEMONYM_TO_COUNTRY.items():
+                if lg_name.startswith(f"{dem} "):
+                    cat_name = country_name
+                    lg_name = lg_name[len(dem) + 1 :]
+                    break
+            else:
+                cat_name = lg_name.split(" ")[0] if " " in lg_name else "International"
+        if lid and lg_name:
+            ESPN_LEAGUE_CATALOG[lid] = (cat_name, lg_name, 6000)
 
     fake_sb_ev = {
         "id": comp.get("id") or header.get("id"),
-        "uid": header.get("uid") or comp.get("uid") or "",
+        "uid": uid_str,
         "date": comp.get("date"),
         "season": header.get("season") or {},
         "competitions": [comp],
