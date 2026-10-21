@@ -109,6 +109,43 @@ def resolve_a_fast(hostname: str = "www.sofascore.com") -> str:
     return FALLBACK_SOFASCORE_IPS[0]
 
 
+def resolve_aaaa_fast(hostname: str = "www.sofascore.com") -> str:
+    """Resolve an IPv6 AAAA record via direct UDP query to 1.1.1.1 / 8.8.8.8 in ~10ms."""
+    tid = b"\x42\x42\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00"
+    qname = b"".join(bytes([len(p)]) + p.encode("ascii") for p in hostname.split(".")) + b"\x00\x00\x1c\x00\x01"
+    pkt = tid + qname
+
+    for dns_server in ("1.1.1.1", "8.8.8.8", "9.9.9.9"):
+        sock = None
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(0.8)
+            sock.sendto(pkt, (dns_server, 53))
+            resp, _ = sock.recvfrom(512)
+            ancount = struct.unpack("!H", resp[6:8])[0]
+            idx = len(pkt)
+            for _ in range(ancount):
+                if resp[idx] & 0xC0 == 0xC0:
+                    idx += 2
+                else:
+                    end = resp.index(0, idx)
+                    idx = end + 1
+                rtype, _, _, rdlen = struct.unpack("!HHIH", resp[idx : idx + 10])
+                idx += 10
+                if rtype == 28 and rdlen == 16:
+                    return socket.inet_ntop(socket.AF_INET6, resp[idx : idx + 16])
+                idx += rdlen
+        except Exception:
+            continue
+        finally:
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+    return "2a04:4e42:200::820"
+
+
 def _team_tokens(name: str) -> set[str]:
     stop = {"fc", "cf", "sc", "ac", "afc", "club", "de", "real", "sporting", "united", "city", "utd"}
     words = {w for w in re.sub(r"[^a-z0-9 ]", " ", name.lower()).split() if len(w) >= 3}
@@ -124,12 +161,14 @@ class SofaScoreClient:
 
     def __init__(self) -> None:
         self._sofascore_ip = resolve_a_fast("www.sofascore.com")
+        self._sofascore_ip6 = resolve_aaaa_fast("www.sofascore.com")
         self._espn_ip = resolve_a_fast("site.api.espn.com")
         self._local = threading.local()
         self._cache: dict[str, tuple[float, Any]] = {}
         self._stale_cache: dict[str, Any] = {}
         self._bundle_cache: dict[int, tuple[float, FullMatchBundle]] = {}
         self._known_events: dict[int, MatchEvent] = {}
+        self._espn_to_sofa_id: dict[int, int] = {}
         self._cache_lock = threading.Lock()
         self._cache_dirty: bool = False
         self._last_disk_save: float = 0.0
@@ -172,8 +211,9 @@ class SofaScoreClient:
         except Exception:
             pass
 
-    def _get_session(self) -> Any:
-        sess = getattr(self._local, "session", None)
+    def _get_session(self, is_sofascore: bool = True) -> Any:
+        attr_name = "sofa_session" if is_sofascore else "espn_session"
+        sess = getattr(self._local, attr_name, None)
         if sess is None:
             headers = {
                 "Accept": "application/json, text/plain, */*",
@@ -181,17 +221,28 @@ class SofaScoreClient:
                 "Referer": "https://www.sofascore.com/",
             }
             if HAS_CURL_CFFI and cffi_requests is not None and CurlOpt is not None:
-                sess = cffi_requests.Session(
-                    impersonate="chrome",
-                    headers=headers,
-                    curl_options={
-                        CurlOpt.IPRESOLVE: 1,
-                        CurlOpt.RESOLVE: [
-                            f"www.sofascore.com:443:{self._sofascore_ip}",
-                            f"site.api.espn.com:443:{self._espn_ip}",
-                        ],
-                    },
-                )
+                if is_sofascore:
+                    sess = cffi_requests.Session(
+                        impersonate="chrome",
+                        headers=headers,
+                        curl_options={
+                            CurlOpt.IPRESOLVE: 2,
+                            CurlOpt.RESOLVE: [
+                                f"www.sofascore.com:443:{self._sofascore_ip6}",
+                            ],
+                        },
+                    )
+                else:
+                    sess = cffi_requests.Session(
+                        impersonate="chrome",
+                        headers=headers,
+                        curl_options={
+                            CurlOpt.IPRESOLVE: 1,
+                            CurlOpt.RESOLVE: [
+                                f"site.api.espn.com:443:{self._espn_ip}",
+                            ],
+                        },
+                    )
             else:
                 sess = httpx.Client(
                     headers={
@@ -200,7 +251,7 @@ class SofaScoreClient:
                     },
                     follow_redirects=True,
                 )
-            self._local.session = sess
+            setattr(self._local, attr_name, sess)
         return sess
 
     def get_json(
@@ -224,7 +275,7 @@ class SofaScoreClient:
         url = f"{SOFASCORE_BASE}{path}" if path.startswith("/") else path
         for attempt in range(2):
             try:
-                sess = self._get_session()
+                sess = self._get_session(is_sofascore=is_sofascore)
                 resp = sess.get(url, timeout=timeout)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -241,7 +292,7 @@ class SofaScoreClient:
                     return None
             except Exception:
                 if attempt == 0:
-                    self._local.session = None
+                    setattr(self._local, "sofa_session" if is_sofascore else "espn_session", None)
         if allow_stale:
             with self._cache_lock:
                 return self._stale_cache.get(path)
@@ -323,7 +374,15 @@ class SofaScoreClient:
         except ValueError:
             target_date = datetime.date.today()
 
-        # Try SofaScore if not in 403 challenge cooldown
+        # Fetch curated global broadcast scoreboard (1 single HTTP request covering 95+ global leagues)
+        espn_matches = self.get_espn_matches_for_date(date_str, force=force)
+        if espn_matches:
+            with self._cache_lock:
+                self._cache[cache_key] = (time.monotonic(), espn_matches)
+                self._stale_cache[cache_key] = espn_matches
+            return espn_matches
+
+        # Fallback to SofaScore categories if ESPN is unreachable
         if time.monotonic() >= self._sofascore_cooldown_until:
             today_str = datetime.date.today().isoformat()
             futures = {}
@@ -371,20 +430,79 @@ class SofaScoreClient:
                     self._stale_cache[cache_key] = matches
                 return matches
 
-        # Automatic ESPN failover (1 single HTTP request!)
-        espn_matches = self.get_espn_matches_for_date(date_str, force=force)
-        if espn_matches:
-            with self._cache_lock:
-                self._cache[cache_key] = (time.monotonic(), espn_matches)
-                self._stale_cache[cache_key] = espn_matches
-            return espn_matches
-
         # Last-resort stale cache so pressing 'r' never blanks out the screen
         with self._cache_lock:
             stale = self._stale_cache.get(cache_key)
             if stale:
                 return list(stale)
         return []
+
+    def _resolve_sofascore_event_id(self, event_id: int, hint_event: MatchEvent | None = None) -> int | None:
+        """Map an ESPN 9-digit match ID to its corresponding SofaScore 8-digit event ID via /search/events."""
+        if event_id < 400_000_000:
+            return event_id
+
+        with self._cache_lock:
+            cached_sofa = self._espn_to_sofa_id.get(event_id)
+        if cached_sofa:
+            return cached_sofa
+
+        ev = hint_event
+        if ev is None:
+            with self._cache_lock:
+                ev = self._known_events.get(event_id)
+        if ev is None:
+            url = f"{ESPN_BASE}/summary?event={event_id}"
+            data = self.get_json(url, ttl=30.0, timeout=5.0)
+            if data:
+                b_tmp = parse_espn_summary_bundle(data)
+                if b_tmp:
+                    ev = b_tmp.event
+
+        if ev is None:
+            return None
+
+        h_toks = _team_tokens(ev.home_team.name) | _team_tokens(ev.home_team.short_name)
+        a_toks = _team_tokens(ev.away_team.name) | _team_tokens(ev.away_team.short_name)
+
+        queries = [
+            f"{ev.home_team.name} {ev.away_team.name}",
+            f"{ev.home_team.short_name} {ev.away_team.short_name}",
+        ]
+        for q_raw in queries:
+            q_enc = urllib.parse.quote_plus(q_raw)
+            res = self.get_json(f"/search/events?q={q_enc}", ttl=300.0, timeout=4.0, allow_stale=True)
+            if not res or not isinstance(res.get("results"), list):
+                continue
+            best_id: int | None = None
+            best_score = 0
+            for item in res["results"]:
+                ent = item.get("entity") or {}
+                sid = int(ent.get("id") or 0)
+                if not sid:
+                    continue
+                s_ts = int(ent.get("startTimestamp") or 0)
+                if ev.start_timestamp and s_ts and abs(s_ts - ev.start_timestamp) > 172800:
+                    continue
+                sh_name = str((ent.get("homeTeam") or {}).get("name") or "")
+                sh_short = str((ent.get("homeTeam") or {}).get("shortName") or "")
+                sa_name = str((ent.get("awayTeam") or {}).get("name") or "")
+                sa_short = str((ent.get("awayTeam") or {}).get("shortName") or "")
+                ch_toks = _team_tokens(sh_name) | _team_tokens(sh_short)
+                ca_toks = _team_tokens(sa_name) | _team_tokens(sa_short)
+                score = len(h_toks & ch_toks) * 2 + len(a_toks & ca_toks) * 2
+                if sh_name.lower() in ev.home_team.name.lower() or ev.home_team.name.lower() in sh_name.lower():
+                    score += 3
+                if sa_name.lower() in ev.away_team.name.lower() or ev.away_team.name.lower() in sa_name.lower():
+                    score += 3
+                if score > best_score:
+                    best_score = score
+                    best_id = sid
+            if best_id and best_score >= 2:
+                with self._cache_lock:
+                    self._espn_to_sofa_id[event_id] = best_id
+                return best_id
+        return None
 
     def _resolve_espn_event_id(self, event_id: int, hint_event: MatchEvent | None = None) -> int | None:
         """Map a SofaScore 8-digit match ID to its corresponding ESPN 9-digit event ID by team names & date."""
@@ -443,7 +561,7 @@ class SofaScoreClient:
         force: bool = False,
         hint_event: MatchEvent | None = None,
     ) -> FullMatchBundle | None:
-        """Fetch full match center from SofaScore or ESPN (with automatic cross-provider failover)."""
+        """Fetch full match center prioritizing live SofaScore data (managers, referee, Attack Momentum graph, ratings) with ESPN failover."""
         now = time.monotonic()
         if not force:
             with self._cache_lock:
@@ -451,26 +569,22 @@ class SofaScoreClient:
                 if b_cached and (now - b_cached[0]) < 25.0:
                     return b_cached[1]
 
-        # 1. If event_id is an ESPN ID (>= 400,000,000), fetch directly from ESPN in 1 request
-        if event_id >= 400_000_000:
-            bundle = self.get_espn_match_bundle(event_id, force=force)
-            if bundle:
-                with self._cache_lock:
-                    self._bundle_cache[event_id] = (time.monotonic(), bundle)
-                return bundle
-
-        # 2. Try SofaScore if not in 403 challenge cooldown (or if cached in _stale_cache)
         ttl = 0.0 if force else 15.0
-        if time.monotonic() >= self._sofascore_cooldown_until:
-            bundle = self._fetch_sofascore_bundle(event_id, ttl=ttl, allow_stale=False)
-            if bundle:
-                with self._cache_lock:
-                    self._bundle_cache[event_id] = (time.monotonic(), bundle)
-                self._save_disk_cache()
-                return bundle
 
-        # 3. Cross-provider failover: resolve SofaScore match on ESPN by team names & date!
-        espn_id = self._resolve_espn_event_id(event_id, hint_event=hint_event)
+        # 1. Always try real SofaScore first (resolving ESPN 9-digit IDs to SofaScore 8-digit IDs via /search/events)
+        if time.monotonic() >= self._sofascore_cooldown_until:
+            sofa_id = event_id if event_id < 400_000_000 else self._resolve_sofascore_event_id(event_id, hint_event=hint_event)
+            if sofa_id:
+                bundle = self._fetch_sofascore_bundle(sofa_id, ttl=ttl, allow_stale=False)
+                if bundle:
+                    bundle.event.id = event_id
+                    with self._cache_lock:
+                        self._bundle_cache[event_id] = (time.monotonic(), bundle)
+                    self._save_disk_cache()
+                    return bundle
+
+        # 2. Cross-provider failover to ESPN if SofaScore does not have the match or is unreachable
+        espn_id = event_id if event_id >= 400_000_000 else self._resolve_espn_event_id(event_id, hint_event=hint_event)
         if espn_id:
             espn_bundle = self.get_espn_match_bundle(espn_id, force=force)
             if espn_bundle:
@@ -478,7 +592,7 @@ class SofaScoreClient:
                     self._bundle_cache[event_id] = (time.monotonic(), espn_bundle)
                 return espn_bundle
 
-        # 4. Fallback to cached SofaScore data if available in memory/disk
+        # 3. Fallback to cached SofaScore data if available in memory/disk
         stale_bundle = self._fetch_sofascore_bundle(event_id, ttl=999999.0, allow_stale=True)
         if stale_bundle:
             with self._cache_lock:
@@ -525,7 +639,23 @@ class SofaScoreClient:
         incidents: list[IncidentItem] = []
         inc_payload = results.get("incidents")
         if inc_payload and isinstance(inc_payload.get("incidents"), list):
-            incidents = [IncidentItem.from_dict(x) for x in inc_payload["incidents"]]
+            for x in inc_payload["incidents"]:
+                if x.get("incidentType") == "period" and x.get("isLive") is True:
+                    continue
+                incidents.append(IncidentItem.from_dict(x))
+
+        for inc in incidents:
+            if inc.incident_type == "injuryTime" and inc.length > 0:
+                if inc.time == 45 and match_event.injury_time_1 == 0:
+                    match_event.injury_time_1 = inc.length
+                elif inc.time == 90 and match_event.injury_time_2 == 0:
+                    match_event.injury_time_2 = inc.length
+        for inc in incidents:
+            if inc.incident_type == "period":
+                if inc.text == "HT" and match_event.injury_time_1 > 0:
+                    inc.added_time = match_event.injury_time_1
+                elif inc.text == "FT" and match_event.injury_time_2 > 0:
+                    inc.added_time = match_event.injury_time_2
 
         period_stats: list[PeriodStats] = []
         stat_payload = results.get("statistics")

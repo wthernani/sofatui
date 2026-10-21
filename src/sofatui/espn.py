@@ -27,7 +27,6 @@ from sofatui.models import (
     TeamLineup,
     TournamentInfo,
     enrich_team_identity,
-    resolve_team_manager,
     sanitize_hex_color,
 )
 
@@ -322,28 +321,17 @@ def _select_match_referee(
     raw_name: str = "",
     raw_country: str = "",
 ) -> tuple[str, str]:
-    """Return (referee_name, referee_country_alpha3) from official data or competition pool."""
-    if raw_name:
-        nat = raw_country
-        if not nat:
-            nat = KNOWN_REFEREE_COUNTRIES.get(raw_name.lower().strip(), "")
-        if not nat and cat_name not in ("Europe", "South America", "World", "International"):
-            nat = COUNTRY_ALPHA3_MAP.get(cat_name.lower(), cat_name[:3].upper())
-        elif nat and len(nat) > 3:
-            nat = COUNTRY_ALPHA3_MAP.get(nat.lower(), nat[:3].upper())
-        return (raw_name, nat or "INT")
-
-    pool = COMPETITION_REFEREES.get(cat_name, COMPETITION_REFEREES["Europe"])
-    if cat_name in ("Europe", "South America", "World", "International"):
-        neutral_pool = [
-            (r_name, r_nat)
-            for r_name, r_nat in pool
-            if r_nat not in (home_country_code, away_country_code)
-        ]
-        if neutral_pool:
-            pool = neutral_pool
-    idx = abs(eid) % len(pool)
-    return pool[idx]
+    """Return (referee_name, referee_country_alpha3) strictly from official match data."""
+    if not raw_name:
+        return ("", "")
+    nat = raw_country
+    if not nat:
+        nat = KNOWN_REFEREE_COUNTRIES.get(raw_name.lower().strip(), "")
+    if not nat and cat_name not in ("Europe", "South America", "World", "International"):
+        nat = COUNTRY_ALPHA3_MAP.get(cat_name.lower(), cat_name[:3].upper())
+    elif nat and len(nat) > 3:
+        nat = COUNTRY_ALPHA3_MAP.get(nat.lower(), nat[:3].upper())
+    return (raw_name, nat or "INT")
 
 
 def parse_espn_scoreboard_event(ev: dict[str, Any], league_override: tuple[str, str] | None = None) -> MatchEvent | None:
@@ -571,8 +559,6 @@ def parse_espn_scoreboard_event(ev: dict[str, Any], league_override: tuple[str, 
         prev_leg_score=prev_leg_score,
         series_note=series_note,
         attendance=attendance,
-        home_manager=resolve_team_manager(home_team.name, home_team.short_name),
-        away_manager=resolve_team_manager(away_team.name, away_team.short_name),
     )
 
 
