@@ -2,6 +2,18 @@
 
 A full-featured, fast, SofaScore-style Terminal User Interface (TUI) for live football scores, match statistics, Attack Momentum graphs, 2D tactical pitch formations, SofaScore player ratings, play-by-play commentary, and live league standings.
 
+![SofaTUI Animated Demo](assets/demo.gif)
+
+## 📸 Screenshots
+
+| 1. Overview, Attack Momentum & Timeline | 3. 2D Tactical Pitch, Lineups & Ratings |
+| :---: | :---: |
+| ![Overview & Momentum](assets/01_overview.png) | ![2D Tactical Pitch & Lineups](assets/03_lineups_pitch.png) |
+
+| 2. Full Match Statistics | 4. Play-by-Play Commentary & Highlights | 5. Live Standings & H2H |
+| :---: | :---: | :---: |
+| ![Match Statistics](assets/02_statistics.png) | ![Commentary & Highlights](assets/04_commentary.png) | ![Live Standings](assets/05_standings.png) |
+
 ## ✨ Features
 
 - **Real-Time SofaScore Data Engine**:
