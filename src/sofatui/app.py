@@ -385,7 +385,7 @@ class SofaTuiApp(App[None]):
         d0_cell = date_txt.cell_len
         d0_span = len(date_txt)
         date_txt.append("◀ [h]  ", style="dim #94a3b8")
-        date_txt.apply_meta({"@click": "app.prev_day"}, d0_span, len(date_txt))
+        date_txt.apply_meta({"date_action": "prev_day"}, d0_span, len(date_txt))
         self._date_hit_ranges.append((d0_cell, date_txt.cell_len, "prev_day"))
 
         d1_cell = date_txt.cell_len
@@ -393,14 +393,14 @@ class SofaTuiApp(App[None]):
         date_txt.append(f"◆ {date_str}", style="bold #f8fafc")
         if is_today:
             date_txt.append(" ")
-            date_txt.append(" TODAY ", style="bold #0b132b on #00e676")
-        date_txt.apply_meta({"@click": "app.today"}, d1_span, len(date_txt))
+            date_txt.append(" TODAY ", style="bold #000000 on #00e676")
+        date_txt.apply_meta({"date_action": "today"}, d1_span, len(date_txt))
         self._date_hit_ranges.append((d1_cell, date_txt.cell_len, "today"))
 
         d2_cell = date_txt.cell_len
         d2_span = len(date_txt)
         date_txt.append("  [l] ▶", style="dim #94a3b8")
-        date_txt.apply_meta({"@click": "app.next_day"}, d2_span, len(date_txt))
+        date_txt.apply_meta({"date_action": "next_day"}, d2_span, len(date_txt))
         self._date_hit_ranges.append((d2_cell, date_txt.cell_len, "next_day"))
         self._date_bar_cell_len = date_txt.cell_len
         self.query_one("#date-status-label", Static).update(date_txt)
@@ -428,11 +428,11 @@ class SofaTuiApp(App[None]):
             f_start = strip.cell_len
             f_span = len(strip)
             if self.active_filter == key:
-                style = "bold #0b132b on #00e676" if key != "live" else "bold #ffffff on #e11d48"
+                style = "bold #000000 on #00e676" if key != "live" else "bold #ffffff on #e11d48"
                 strip.append(f" {label} ", style=style)
             else:
                 strip.append(f" {label} ", style="dim #cbd5e1")
-            strip.apply_meta({"@click": f"app.filter_{key}"}, f_span, len(strip))
+            strip.apply_meta({"filter": key}, f_span, len(strip))
             self._filter_hit_ranges.append((f_start, strip.cell_len, key))
             strip.append(" ")
         self.query_one("#filter-strip", Static).update(strip)
@@ -451,10 +451,10 @@ class SofaTuiApp(App[None]):
             t_start = t_bar.cell_len
             t_span = len(t_bar)
             if self.active_tab == idx:
-                t_bar.append(f"  {t_label}  ", style="bold #0b132b on #38bdf8")
+                t_bar.append(f"  {t_label}  ", style="bold #000000 on #38bdf8")
             else:
                 t_bar.append(f"  {t_label}  ", style="bold #94a3b8 on #131b28")
-            t_bar.apply_meta({"@click": f"app.tab_{idx}"}, t_span, len(t_bar))
+            t_bar.apply_meta({"tab": idx}, t_span, len(t_bar))
             self._tab_hit_ranges.append((t_start, t_bar.cell_len, idx))
             t_bar.append(" ")
         self._tabs_bar_cell_len = t_bar.cell_len
@@ -746,8 +746,23 @@ class SofaTuiApp(App[None]):
             self.notify(f"No football matches found on SofaScore for '{query}'.", severity="warning")
 
     def on_click(self, event: events.Click) -> None:
-        if event.style.meta.get("@click"):
+        meta = event.style.meta
+        if "tab" in meta:
+            getattr(self, f"action_tab_{meta['tab']}")()
             return
+        if "filter" in meta:
+            getattr(self, f"action_filter_{meta['filter']}")()
+            return
+        if "date_action" in meta:
+            getattr(self, f"action_{meta['date_action']}")()
+            return
+        if "period" in meta:
+            self.action_set_period(str(meta["period"]))
+            return
+        if "player_id" in meta:
+            self.action_select_player(int(meta["player_id"]))
+            return
+
         widget = event.widget
         if widget is None:
             return

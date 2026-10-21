@@ -180,16 +180,16 @@ def rating_style(rating: float | None) -> str:
     if rating is None or rating <= 0:
         return "dim white on #2a2e39"
     if rating >= 9.0:
-        return "bold #ffffff on #0096c7"  # SofaScore Electric Blue (9.0 - 10.0)
+        return "bold #ffffff on #0284c7"  # SofaScore Electric Blue (9.0 - 10.0)
     if rating >= 8.0:
-        return "bold #0b132b on #00e676"  # SofaScore Bright Emerald (8.0 - 8.9)
+        return "bold #000000 on #00e676"  # SofaScore Bright Emerald (8.0 - 8.9)
     if rating >= 7.0:
-        return "bold #0b132b on #9ef01a"  # SofaScore Lime Green (7.0 - 7.9)
+        return "bold #000000 on #84cc16"  # SofaScore Lime Green (7.0 - 7.9)
     if rating >= 6.5:
-        return "bold #0b132b on #ffea00"  # SofaScore Yellow/Amber (6.5 - 6.9)
+        return "bold #000000 on #facc15"  # SofaScore Yellow/Amber (6.5 - 6.9)
     if rating >= 6.0:
-        return "bold #0b132b on #ff9100"  # SofaScore Orange (6.0 - 6.4)
-    return "bold #ffffff on #ff1744"      # SofaScore Red (< 6.0)
+        return "bold #000000 on #fb923c"  # SofaScore Orange (6.0 - 6.4)
+    return "bold #ffffff on #e11d48"      # SofaScore Red (< 6.0)
 
 
 def format_rating_badge(rating: float | None, is_motm: bool = False) -> Text:
@@ -803,10 +803,10 @@ def render_statistics_tab(bundle: FullMatchBundle, period: str = "ALL", width: i
     for per in available_periods:
         span_start = len(p_bar)
         if per == chosen_period:
-            p_bar.append(f" [{per}] ", style="bold #0b132b on #00e676")
+            p_bar.append(f" [{per}] ", style="bold #000000 on #00e676")
         else:
             p_bar.append(f"  {per}  ", style="bold #94a3b8 on #1e293b")
-        p_bar.apply_meta({"@click": f'app.set_period("{per}")'}, span_start, len(p_bar))
+        p_bar.apply_meta({"period": per}, span_start, len(p_bar))
         p_bar.append(" ")
 
     panels: list[RenderableType] = [Align.center(p_bar)]
@@ -917,7 +917,7 @@ def _format_pitch_player(p: PlayerLineup, motm_id: int, selected_id: int) -> Tex
     if role:
         t.append(f"[{role}] ", style="dim #94a3b8")
     short = p.short_name[:13]
-    name_style = "bold underline #ffd166" if is_sel else "bold #f8fafc"
+    name_style = "bold #ffd166" if is_sel else "bold #f8fafc"
     t.append(f"#{p.shirt_number} {short}", style=name_style)
     if p.goals > 0:
         t.append(" " + "⚽" * min(3, p.goals), style="bold #00e676")
@@ -935,7 +935,7 @@ def _format_pitch_player(p: PlayerLineup, motm_id: int, selected_id: int) -> Tex
     t.append(" ")
     t.append_text(format_rating_badge(p.rating, is_motm=(p.id == motm_id and (p.rating or 0) >= 7.0)))
     if p.id:
-        t.apply_meta({"@click": f"app.select_player({p.id})"}, 0, len(t))
+        t.apply_meta({"player_id": p.id}, 0, len(t))
     return t
 
 
@@ -1171,7 +1171,7 @@ def _format_squad_row(p: PlayerLineup, motm_id: int, selected_id: int) -> Text:
     line.append(f" #{p.shirt_number:>2} ", style="dim #94a3b8")
     role = str(p.stats.get("tacticalRole") or p.position)
     line.append(f"({role:<3}) ", style="dim #64748b")
-    name_style = "bold underline #ffd166" if p.id == selected_id else "bold #e2e8f0"
+    name_style = "bold #ffd166" if p.id == selected_id else "bold #e2e8f0"
     line.append(p.short_name, style=name_style)
     if p.captain:
         line.append(" (C)", style="bold #ffd166")
@@ -1191,7 +1191,7 @@ def _format_squad_row(p: PlayerLineup, motm_id: int, selected_id: int) -> Text:
         else:
             line.append(f" ▼{p.subbed_out}'", style="bold #f87171")
     if p.id:
-        line.apply_meta({"@click": f"app.select_player({p.id})"}, 0, len(line))
+        line.apply_meta({"player_id": p.id}, 0, len(line))
     return line
 
 
