@@ -942,52 +942,77 @@ def _build_pitch_row(
     motm_id: int,
     selected_player_id: int,
 ) -> Table:
-    """Build one tactical line row with symmetric horizontal spacing across the pitch."""
-    row_tbl = Table.grid(expand=True, padding=(0, 1))
-    row_tbl.add_column(width=7, justify="left")
+    """Build one tactical line row with exact symmetric horizontal spacing across the pitch."""
+    row_tbl = Table(box=None, expand=True, show_header=False, show_edge=False, padding=(0, 0))
+    row_tbl.add_column(width=6, justify="left")
     n = len(r_players)
     cells: list[RenderableType] = [Text(f" {line_label:<3} │", style=f"bold {side_color}")]
     p_nodes = [_format_pitch_player(p, motm_id, selected_player_id) for p in r_players]
 
     if n == 1:
-        row_tbl.add_column(ratio=3)
-        row_tbl.add_column(justify="center", ratio=4)
-        row_tbl.add_column(ratio=3)
-        cells.extend([Text(""), p_nodes[0], Text("")])
+        row_tbl.add_column(ratio=1, justify="center")
+        cells.append(Align.center(p_nodes[0]))
     elif n == 2:
-        row_tbl.add_column(ratio=2)
+        row_tbl.add_column(ratio=1)
         row_tbl.add_column(justify="center", ratio=3)
         row_tbl.add_column(justify="center", ratio=3)
-        row_tbl.add_column(ratio=2)
-        cells.extend([Text(""), p_nodes[0], p_nodes[1], Text("")])
+        row_tbl.add_column(ratio=1)
+        cells.extend([Text(""), Align.center(p_nodes[0]), Align.center(p_nodes[1]), Text("")])
     elif n == 3:
-        row_tbl.add_column(ratio=1)
-        row_tbl.add_column(justify="center", ratio=3)
-        row_tbl.add_column(justify="center", ratio=3)
-        row_tbl.add_column(justify="center", ratio=3)
-        row_tbl.add_column(ratio=1)
-        cells.extend([Text(""), p_nodes[0], p_nodes[1], p_nodes[2], Text("")])
+        row_tbl.add_column(ratio=1, justify="center")
+        row_tbl.add_column(ratio=1, justify="center")
+        row_tbl.add_column(ratio=1, justify="center")
+        cells.extend([Align.center(p_nodes[0]), Align.center(p_nodes[1]), Align.center(p_nodes[2])])
     else:
-        for _ in r_players:
+        for p_node in p_nodes:
             row_tbl.add_column(justify="center", ratio=1)
-        cells.extend(p_nodes)
+            cells.append(Align.center(p_node))
 
-    row_tbl.add_column(width=3, justify="right")
-    cells.append(Text("│ ", style=f"dim {side_color}"))
+    row_tbl.add_column(width=2, justify="right")
+    cells.append(Text("│", style=f"dim {side_color}"))
     row_tbl.add_row(*cells)
     return row_tbl
 
 
-def _build_pitch_spacer(side_color: str, center_mark: str = "┆") -> Table:
-    """Render a vertical breathing-room pitch line between tactical rows."""
-    sp = Table.grid(expand=True, padding=(0, 1))
-    sp.add_column(width=7, justify="left")
-    sp.add_column(justify="center", ratio=1)
-    sp.add_column(width=3, justify="right")
+def _build_pitch_marking_row(
+    side_color: str,
+    center_art: str,
+    art_style: str = "#15803d",
+    left_border: str = "     │",
+    right_border: str = "│",
+) -> Table:
+    """Render a centered pitch geometry line (penalty box or center circle arc) aligned with the sidelines."""
+    sp = Table(box=None, expand=True, show_header=False, show_edge=False, padding=(0, 0))
+    sp.add_column(width=6, justify="left")
+    sp.add_column(ratio=1, justify="center")
+    sp.add_column(width=2, justify="right")
     sp.add_row(
-        Text("     │", style=f"dim {side_color}"),
-        Text(center_mark, style="dim #15803d"),
-        Text("│ ", style=f"dim {side_color}"),
+        Text(left_border, style=f"dim {side_color}"),
+        Align.center(Text(center_art, style=art_style)),
+        Text(right_border, style=f"dim {side_color}"),
+    )
+    return sp
+
+
+def _build_pitch_full_line(
+    side_color: str,
+    left_corner: str,
+    right_corner: str,
+    center_piece: str = "",
+) -> Table:
+    """Render a full-width horizontal pitch boundary or halfway line between the left and right touchlines."""
+    sp = Table(box=None, expand=True, show_header=False, show_edge=False, padding=(0, 0))
+    sp.add_column(width=6, justify="left")
+    sp.add_column(ratio=1, justify="center")
+    sp.add_column(width=2, justify="right")
+    if center_piece:
+        mid: RenderableType = Rule(title=f"[bold {side_color}]{center_piece}[/]", style=f"dim {side_color}", characters="─")
+    else:
+        mid = Rule(style=f"dim {side_color}", characters="─")
+    sp.add_row(
+        Text(f"     {left_corner}", style=f"dim {side_color}"),
+        mid,
+        Text(right_corner, style=f"dim {side_color}"),
     )
     return sp
 
@@ -1006,43 +1031,50 @@ def render_tactical_pitch(
             border_style="#1e293b",
         )
 
+    ev = bundle.event
+    h_color, a_color = resolve_match_kit_colors(ev.home_team, ev.away_team)
     home_rows = _split_formation_rows(lu.home.starters, lu.home.formation)
     away_rows = list(reversed(_split_formation_rows(lu.away.starters, lu.away.formation)))
 
     pitch_lines: list[RenderableType] = []
 
-    # Home Goal / Header
-    h_hdr = Text(
-        f"┏━━━━━━━━━━━━━━ [HOME] {bundle.event.home_team.name} ({lu.home.formation or 'XI'}) ━━━ [ GOAL ] ━━━━━━━━━━━━━━┓",
-        style="bold #00e676",
-    )
+    # Home Team Header (outside the pitch boundary, zero text inside pitch lines)
+    h_hdr = Text()
+    h_hdr.append(f"■ {ev.home_team.name}", style=f"bold {h_color}")
+    if lu.home.formation:
+        h_hdr.append(f"  •  {lu.home.formation}", style="bold #cbd5e1")
     pitch_lines.append(Align.center(h_hdr))
 
-    for r_idx, (line_lbl, r_players) in enumerate(home_rows):
-        pitch_lines.append(_build_pitch_row(line_lbl, r_players, "#00e676", motm_id, selected_player_id))
-        if r_idx == 0:
-            pitch_lines.append(_build_pitch_spacer("#00e676", "╰─────────────┴─────────────╯"))
-        elif r_idx < len(home_rows) - 1:
-            pitch_lines.append(_build_pitch_spacer("#00e676", "┆"))
+    # Top Goal Line (closed rectangle top border with goal mouth in center)
+    pitch_lines.append(_build_pitch_full_line("#22c55e", "┌", "┐", "┬───────────┬"))
 
-    # Halfway Line with breathing room
-    pitch_lines.append(_build_pitch_spacer("#22c55e", "╭───╮"))
-    pitch_lines.append(
-        Rule(title="[bold #e2e8f0]━━━ ◯ HALFWAY LINE ◯ ━━━[/]", style="#22c55e")
-    )
-    pitch_lines.append(_build_pitch_spacer("#22c55e", "╰───╯"))
+    for r_idx, (line_lbl, r_players) in enumerate(home_rows):
+        pitch_lines.append(_build_pitch_row(line_lbl, r_players, "#22c55e", motm_id, selected_player_id))
+        if r_idx == 0:
+            pitch_lines.append(_build_pitch_marking_row("#22c55e", "└───────────────────────┘", "#15803d"))
+        elif r_idx < len(home_rows) - 1:
+            pitch_lines.append(_build_pitch_marking_row("#22c55e", " ", "#15803d"))
+
+    # Halfway Line & Center Circle (connected to touchlines with ├ and ┤)
+    pitch_lines.append(_build_pitch_marking_row("#22c55e", "╭───────╮", "#15803d"))
+    pitch_lines.append(_build_pitch_full_line("#22c55e", "├", "┤", "◯"))
+    pitch_lines.append(_build_pitch_marking_row("#22c55e", "╰───────╯", "#15803d"))
 
     for r_idx, (line_lbl, r_players) in enumerate(away_rows):
         if r_idx == len(away_rows) - 1 and len(away_rows) > 1:
-            pitch_lines.append(_build_pitch_spacer("#38bdf8", "╭─────────────┬─────────────╮"))
+            pitch_lines.append(_build_pitch_marking_row("#22c55e", "┌───────────────────────┐", "#15803d"))
         elif r_idx > 0:
-            pitch_lines.append(_build_pitch_spacer("#38bdf8", "┆"))
-        pitch_lines.append(_build_pitch_row(line_lbl, r_players, "#38bdf8", motm_id, selected_player_id))
+            pitch_lines.append(_build_pitch_marking_row("#22c55e", " ", "#15803d"))
+        pitch_lines.append(_build_pitch_row(line_lbl, r_players, "#22c55e", motm_id, selected_player_id))
 
-    a_hdr = Text(
-        f"┗━━━━━━━━━━━━━━ [AWAY] {bundle.event.away_team.name} ({lu.away.formation or 'XI'}) ━━━ [ GOAL ] ━━━━━━━━━━━━━━┛",
-        style="bold #38bdf8",
-    )
+    # Bottom Goal Line (closed rectangle bottom border with goal mouth in center)
+    pitch_lines.append(_build_pitch_full_line("#22c55e", "└", "┘", "┴───────────┴"))
+
+    # Away Team Header (outside the pitch boundary, zero text inside pitch lines)
+    a_hdr = Text()
+    a_hdr.append(f"■ {ev.away_team.name}", style=f"bold {a_color}")
+    if lu.away.formation:
+        a_hdr.append(f"  •  {lu.away.formation}", style="bold #cbd5e1")
     pitch_lines.append(Align.center(a_hdr))
 
     status_tag = "Confirmed Lineups" if lu.confirmed else "Predicted / Preliminary Lineups"
