@@ -229,6 +229,7 @@ def test_all_renderers_produce_rich_output() -> None:
                 "name": "Alphadjo Cisse",
                 "shortName": "A. Cisse",
                 "country": {"alpha2": "IT", "alpha3": "ITA", "name": "Italy"},
+                "dateOfBirthTimestamp": 1161475200,
             },
             "shirtNumber": 70,
             "position": "F",
@@ -239,6 +240,7 @@ def test_all_renderers_produce_rich_output() -> None:
     )
     assert cisse.rating == 8.0
     assert cisse.country_display == "ITA • Italy"
+    assert cisse.age == 20
     assert cisse.stats.get("isAvgRating") is True
     upcoming_ev.home_manager = "Marco Rose"
     upcoming_ev.away_manager = "Rúben Amorim"
@@ -259,6 +261,7 @@ def test_all_renderers_produce_rich_output() -> None:
     assert "Player of the Match" not in upcoming_lu_txt
     assert "8.0★" not in upcoming_lu_txt
     assert "[ITA • Italy]" in upcoming_lu_txt
+    assert "Age 20" in upcoming_lu_txt
     assert "8.0" in upcoming_lu_txt
 
 

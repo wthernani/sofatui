@@ -1307,6 +1307,12 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
                 COUNTRY_ALPHA3_MAP.get(c_name.lower(), "")
                 or str(ath.get("citizenshipCountry") or (c_name[:3].upper() if c_name else ""))
             )
+            age_val: int | None = None
+            if ath.get("age"):
+                try:
+                    age_val = int(ath["age"])
+                except (TypeError, ValueError):
+                    pass
 
             players_list.append(
                 PlayerLineup(
@@ -1327,6 +1333,7 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
                     subbed_out=70 if sub_out else None,
                     country_name=c_name,
                     country_code=c_code,
+                    age=age_val,
                     stats=rich_stats,
                 )
             )

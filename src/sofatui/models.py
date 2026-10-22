@@ -754,6 +754,7 @@ class PlayerLineup:
     subbed_out_injured: bool = False
     country_name: str = ""
     country_code: str = ""
+    age: int | None = None
     stats: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -774,6 +775,23 @@ class PlayerLineup:
                 COUNTRY_ALPHA3_MAP.get(c_name.lower(), "")
                 or str(c_raw.get("alpha3") or c_raw.get("alpha2") or (c_name[:3].upper() if c_name else ""))
             )
+        age_val: int | None = None
+        dob_ts = p.get("dateOfBirthTimestamp") if p.get("dateOfBirthTimestamp") is not None else raw.get("dateOfBirthTimestamp")
+        if dob_ts is not None:
+            try:
+                import datetime
+                today = datetime.date.today()
+                dob = datetime.datetime.fromtimestamp(int(dob_ts), tz=datetime.timezone.utc).date()
+                computed = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+                if 13 <= computed <= 60:
+                    age_val = computed
+            except (TypeError, ValueError, OSError):
+                pass
+        if age_val is None and (p.get("age") or raw.get("age")):
+            try:
+                age_val = int(p.get("age") or raw.get("age"))
+            except (TypeError, ValueError):
+                pass
         st = dict(raw.get("statistics") or {})
         match_rating = st.get("rating")
         avg_rating = raw.get("avgRating")
@@ -796,6 +814,7 @@ class PlayerLineup:
             subbed_out_injured=bool(raw.get("subbedOutInjured") or st.get("subbedOutInjured")),
             country_name=c_name,
             country_code=c_code,
+            age=age_val,
             stats=st,
         )
 
