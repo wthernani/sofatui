@@ -935,6 +935,8 @@ def _format_pitch_player(p: PlayerLineup, motm_id: int, selected_id: int) -> Tex
     short = p.short_name[:13]
     name_style = "bold #ffd166" if is_sel else "bold #f8fafc"
     t.append(f"#{p.shirt_number} {short}", style=name_style)
+    if p.captain:
+        t.append(" (C)", style="bold #ffd166")
     if p.goals > 0:
         t.append(" " + "⚽" * min(3, p.goals), style="bold #00e676")
     if p.assists > 0:
@@ -1054,7 +1056,10 @@ def render_tactical_pitch(
     ev = bundle.event
     h_color, a_color = resolve_match_kit_colors(ev.home_team, ev.away_team)
     home_rows = _split_formation_rows(lu.home.starters, lu.home.formation)
-    away_rows = list(reversed(_split_formation_rows(lu.away.starters, lu.away.formation)))
+    away_rows = [
+        (lbl, list(reversed(r_players)))
+        for lbl, r_players in reversed(_split_formation_rows(lu.away.starters, lu.away.formation))
+    ]
 
     pitch_lines: list[RenderableType] = []
 

@@ -1206,11 +1206,11 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
         "CF": 4.4, "ST": 4.5, "F": 4.5,
     }
     lat_map: dict[str, float] = {
-        "LB": -2.0, "LWB": -2.0, "LM": -2.0, "AM-L": -2.0, "LF": -2.0, "LW": -2.0,
-        "CD-L": -1.0, "DM-L": -1.0, "CM-L": -1.0, "CF-L": -1.0,
+        "RB": -2.0, "RWB": -2.0, "RM": -2.0, "AM-R": -2.0, "RF": -2.0, "RW": -2.0,
+        "CD-R": -1.0, "DM-R": -1.0, "CM-R": -1.0, "CF-R": -1.0,
         "G": 0.0, "SW": 0.0, "CD": 0.0, "D": 0.0, "DM": 0.0, "CM": 0.0, "M": 0.0, "AM": 0.0, "CF": 0.0, "F": 0.0, "ST": 0.0,
-        "CD-R": 1.0, "DM-R": 1.0, "CM-R": 1.0, "CF-R": 1.0,
-        "RB": 2.0, "RWB": 2.0, "RM": 2.0, "AM-R": 2.0, "RF": 2.0, "RW": 2.0,
+        "CD-L": 1.0, "DM-L": 1.0, "CM-L": 1.0, "CF-L": 1.0,
+        "LB": 2.0, "LWB": 2.0, "LM": 2.0, "AM-L": 2.0, "LF": 2.0, "LW": 2.0,
     }
     role_display_map: dict[str, str] = {
         "G": "GK", "CD": "CB", "CD-L": "CB", "CD-R": "CB", "D": "DEF",
