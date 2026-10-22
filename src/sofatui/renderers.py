@@ -231,6 +231,14 @@ def _extract_xg(bundle: FullMatchBundle) -> tuple[str, str] | None:
     return None
 
 
+def _coach_title(name: str) -> str:
+    """Return 'Manager' exclusively for Ruben Amorim, and 'Coach' for everyone else."""
+    n = (name or "").lower()
+    if "amorim" in n and ("ruben" in n or "rúben" in n or n.strip() == "amorim"):
+        return "Manager"
+    return "Coach"
+
+
 def render_scoreboard_banner(bundle: FullMatchBundle, is_starred: bool = False) -> Panel:
     """Render the top SofaScore match center scoreboard header."""
     ev = bundle.event
@@ -254,12 +262,12 @@ def render_scoreboard_banner(bundle: FullMatchBundle, is_starred: bool = False) 
 
     # Main 3-column scoreboard grid
     grid = Table.grid(expand=True, padding=(0, 1))
-    grid.add_column(justify="right", ratio=4)
-    grid.add_column(justify="center", ratio=4)
-    grid.add_column(justify="left", ratio=4)
+    grid.add_column(justify="right", ratio=5)
+    grid.add_column(justify="center", ratio=2)
+    grid.add_column(justify="left", ratio=5)
 
     # Home team column: [Home Text (Name + Country + Formation), Low-Res Club Crest]
-    home_txt = Text(justify="right")
+    home_txt = Text(justify="right", no_wrap=True)
     if ev.home_team.red_cards > 0:
         home_txt.append("■ " * ev.home_team.red_cards, style="bold #ff1744")
     home_style = "bold #ffffff" if ev.winner_code != 2 else "#cbd5e1"
@@ -270,7 +278,7 @@ def render_scoreboard_banner(bundle: FullMatchBundle, is_starred: bool = False) 
     if bundle.lineups and bundle.lineups.home.formation:
         meta_h.append(f"[{bundle.lineups.home.formation}]")
     if ev.home_manager:
-        meta_h.append(f"Coach: {ev.home_manager}")
+        meta_h.append(f"{_coach_title(ev.home_manager)}: {ev.home_manager}")
     if meta_h:
         home_txt.append(f"\n{' • '.join(meta_h)}", style="dim #94a3b8")
 
@@ -335,7 +343,7 @@ def render_scoreboard_banner(bundle: FullMatchBundle, is_starred: bool = False) 
             center_txt.append(f"\n{ev.series_note}", style="italic #38bdf8")
 
     # Away team column: [Low-Res Club Crest, Away Text (Name + Country + Formation)]
-    away_txt = Text(justify="left")
+    away_txt = Text(justify="left", no_wrap=True)
     away_style = "bold #ffffff" if ev.winner_code != 1 else "#cbd5e1"
     away_txt.append(ev.away_team.name, style=away_style)
     if ev.away_team.red_cards > 0:
@@ -346,7 +354,7 @@ def render_scoreboard_banner(bundle: FullMatchBundle, is_starred: bool = False) 
     if bundle.lineups and bundle.lineups.away.formation:
         meta_a.append(f"[{bundle.lineups.away.formation}]")
     if ev.away_manager:
-        meta_a.append(f"Coach: {ev.away_manager}")
+        meta_a.append(f"{_coach_title(ev.away_manager)}: {ev.away_manager}")
     if meta_a:
         away_txt.append(f"\n{' • '.join(meta_a)}", style="dim #94a3b8")
 
@@ -1056,7 +1064,7 @@ def render_tactical_pitch(
     if lu.home.formation:
         h_hdr.append(f"  •  {lu.home.formation}", style="bold #cbd5e1")
     if ev.home_manager:
-        h_hdr.append(f"  •  Coach: {ev.home_manager}", style="#94a3b8")
+        h_hdr.append(f"  •  {_coach_title(ev.home_manager)}: {ev.home_manager}", style="#94a3b8")
     pitch_lines.append(Align.center(h_hdr))
 
     # Top Goal Line (closed rectangle top border with goal mouth in center)
@@ -1090,7 +1098,7 @@ def render_tactical_pitch(
     if lu.away.formation:
         a_hdr.append(f"  •  {lu.away.formation}", style="bold #cbd5e1")
     if ev.away_manager:
-        a_hdr.append(f"  •  Coach: {ev.away_manager}", style="#94a3b8")
+        a_hdr.append(f"  •  {_coach_title(ev.away_manager)}: {ev.away_manager}", style="#94a3b8")
     pitch_lines.append(Align.center(a_hdr))
 
     status_tag = "Confirmed Lineups" if lu.confirmed else "Predicted / Preliminary Lineups"
@@ -1259,11 +1267,11 @@ def render_lineups_tab(bundle: FullMatchBundle, selected_player_idx: int = 0) ->
     if bundle.event.home_manager or bundle.event.away_manager:
         hm_txt = Text()
         if bundle.event.home_manager:
-            hm_txt.append("  ◆ Coach: ", style="bold #ffd166")
+            hm_txt.append(f"  ◆ {_coach_title(bundle.event.home_manager)}: ", style="bold #ffd166")
             hm_txt.append(f"{bundle.event.home_manager}\n", style="bold #f8fafc")
         am_txt = Text()
         if bundle.event.away_manager:
-            am_txt.append("  ◆ Coach: ", style="bold #ffd166")
+            am_txt.append(f"  ◆ {_coach_title(bundle.event.away_manager)}: ", style="bold #ffd166")
             am_txt.append(f"{bundle.event.away_manager}\n", style="bold #f8fafc")
         squad_tbl.add_row(hm_txt, Text(""), am_txt)
 

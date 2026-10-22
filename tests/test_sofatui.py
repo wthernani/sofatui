@@ -240,6 +240,8 @@ def test_all_renderers_produce_rich_output() -> None:
     assert cisse.rating == 8.0
     assert cisse.country_display == "ITA • Italy"
     assert cisse.stats.get("isAvgRating") is True
+    upcoming_ev.home_manager = "Marco Rose"
+    upcoming_ev.away_manager = "Rúben Amorim"
     upcoming_bundle = FullMatchBundle(
         event=upcoming_ev,
         lineups=MatchLineups(
@@ -248,7 +250,12 @@ def test_all_renderers_produce_rich_output() -> None:
             away=TeamLineup(formation="3-4-2-1", players=[cisse]),
         ),
     )
+    upcoming_sb_txt = _render_to_str(render_scoreboard_banner(upcoming_bundle))
+    assert "Coach: Marco Rose" in upcoming_sb_txt
+    assert "Manager: Rúben Amorim" in upcoming_sb_txt
     upcoming_lu_txt = _render_to_str(render_lineups_tab(upcoming_bundle, selected_player_idx=len(players_home)))
+    assert "Coach: Marco Rose" in upcoming_lu_txt
+    assert "Manager: Rúben Amorim" in upcoming_lu_txt
     assert "Player of the Match" not in upcoming_lu_txt
     assert "8.0★" not in upcoming_lu_txt
     assert "[ITA • Italy]" in upcoming_lu_txt
