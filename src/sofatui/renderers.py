@@ -1455,19 +1455,20 @@ def render_standings_tab(bundle: FullMatchBundle) -> RenderableType:
 
     # Head-to-Head & Pre-game Form Comparison
     h2h = bundle.h2h
+    home_color, away_color = resolve_match_kit_colors(bundle.event.home_team, bundle.event.away_team)
     h2h_tbl = Table.grid(expand=True, padding=(0, 2))
     h2h_tbl.add_column(justify="center", ratio=1)
     h2h_tbl.add_column(justify="center", ratio=1)
     h2h_tbl.add_column(justify="center", ratio=1)
 
     h2h_tbl.add_row(
-        Text(f"{bundle.event.home_team.name}\n{h2h.home_wins} Wins", style="bold #00e676"),
+        Text(f"{bundle.event.home_team.name}\n{h2h.home_wins} Wins", style=f"bold {home_color}"),
         Text(f"Draws\n{h2h.draws}", style="bold #ffd166"),
-        Text(f"{bundle.event.away_team.name}\n{h2h.away_wins} Wins", style="bold #38bdf8"),
+        Text(f"{bundle.event.away_team.name}\n{h2h.away_wins} Wins", style=f"bold {away_color}"),
     )
     h2h_tbl.add_row(
         format_form_badges(h2h.home_form),
-        Text("Recent 5 Form", style="dim #94a3b8"),
+        Text("Recent Form", style="dim #94a3b8"),
         format_form_badges(h2h.away_form),
     )
     parts.append(

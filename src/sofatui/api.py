@@ -711,6 +711,19 @@ class SofaScoreClient:
             h2h.home_points = str(ht.get("value") or "")
             h2h.away_points = str(at.get("value") or "")
 
+        if len(h2h.home_form) < 5 and match_event.home_team.id:
+            full_hf = self._fetch_team_recent_form(
+                match_event.home_team.id, match_event.start_timestamp, allow_stale=allow_stale
+            )
+            if len(full_hf) > len(h2h.home_form):
+                h2h.home_form = full_hf
+        if len(h2h.away_form) < 5 and match_event.away_team.id:
+            full_af = self._fetch_team_recent_form(
+                match_event.away_team.id, match_event.start_timestamp, allow_stale=allow_stale
+            )
+            if len(full_af) > len(h2h.away_form):
+                h2h.away_form = full_af
+
         standings_rows: list[StandingRow] = []
         standings_name = ""
         ut_id = match_event.tournament.unique_id
@@ -761,6 +774,30 @@ class SofaScoreClient:
             standings_name=standings_name,
             h2h=h2h,
         )
+
+    def _fetch_team_recent_form(
+        self, team_id: int, before_ts: int, allow_stale: bool = True
+    ) -> list[str]:
+        if not team_id:
+            return []
+        data = self.get_json(f"/team/{team_id}/events/last/0", ttl=300.0, timeout=3.5, allow_stale=allow_stale)
+        evs = (data or {}).get("events") or []
+        form: list[str] = []
+        for e in evs:
+            if (e.get("status") or {}).get("type") != "finished":
+                continue
+            ts = int(e.get("startTimestamp") or 0)
+            if before_ts > 0 and ts >= before_ts:
+                continue
+            wc = int(e.get("winnerCode") or 0)
+            is_home = int((e.get("homeTeam") or {}).get("id") or 0) == team_id
+            if wc == 3:
+                form.append("D")
+            elif (wc == 1 and is_home) or (wc == 2 and not is_home):
+                form.append("W")
+            elif wc in (1, 2):
+                form.append("L")
+        return form[-5:]
 
     def _parse_lineups(
         self, payload: dict[str, Any] | None, incidents: list[IncidentItem]
