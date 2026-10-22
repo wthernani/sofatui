@@ -199,7 +199,7 @@ class SofaTuiApp(App[None]):
     }
 
     #left-pane {
-        width: 56;
+        width: 58;
         height: 100%;
         background: #0f141d;
         border-right: solid #1e293b;
@@ -417,21 +417,23 @@ class SofaTuiApp(App[None]):
 
         pills = [
             ("all", f"[a]All({len(self._all_matches)})"),
-            ("live", f"[v]●Live({live_count})"),
+            ("live", f"[v]Live({live_count})"),
             ("finished", f"[f]FT({ft_count})"),
-            ("upcoming", f"[u]Next({up_count})"),
+            ("upcoming", f"[u]Up({up_count})"),
             ("starred", f"[s]★({star_count})"),
         ]
-        strip = Text()
+        strip = Text(no_wrap=True)
         self._filter_hit_ranges = []
-        for key, label in pills:
+        for idx_p, (key, label) in enumerate(pills):
+            if idx_p > 0:
+                strip.append(" ")
             f_start = strip.cell_len
             f_span = len(strip)
             if self.active_filter == key:
                 style = "bold #000000 on #00e676" if key != "live" else "bold #ffffff on #e11d48"
                 strip.append(f" {label} ", style=style)
             else:
-                strip.append(f" {label} ", style="dim #cbd5e1")
+                strip.append(label, style="dim #cbd5e1")
             strip.apply_meta({"filter": key}, f_span, len(strip))
             self._filter_hit_ranges.append((f_start, strip.cell_len, key))
         self.query_one("#filter-strip", Static).update(strip)

@@ -375,6 +375,10 @@ def test_textual_tui_headless_navigation_and_refresh() -> None:
             await pilot.pause(0.1)
             assert app.active_tab == 2
 
+            fs_widget = app.query_one("#filter-strip")
+            fs_line = "".join(seg.text for seg in fs_widget.render_line(0))
+            assert "[s]★" in fs_line
+
             fs_start, fs_end, _ = app._filter_hit_ranges[2]  # finished
             await pilot.click("#filter-strip", offset=(1 + (fs_start + fs_end) // 2, 0))
             await pilot.pause(0.1)
