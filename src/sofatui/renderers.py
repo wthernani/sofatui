@@ -1252,8 +1252,9 @@ def render_lineups_tab(bundle: FullMatchBundle, selected_player_idx: int = 0) ->
 
     # Side-by-side Starting XI & Substitutes table
     squad_tbl = Table(expand=True, box=None, show_header=True, header_style="bold #38bdf8", padding=(0, 1))
-    squad_tbl.add_column(f"▶ [HOME] {bundle.event.home_team.name} ({lu.home.formation or 'XI'})", ratio=1)
-    squad_tbl.add_column(f"▶ [AWAY] {bundle.event.away_team.name} ({lu.away.formation or 'XI'})", ratio=1)
+    squad_tbl.add_column(f"▶ [HOME] {bundle.event.home_team.name} ({lu.home.formation or 'XI'})", justify="left", no_wrap=True)
+    squad_tbl.add_column("", ratio=1)
+    squad_tbl.add_column(f"▶ [AWAY] {bundle.event.away_team.name} ({lu.away.formation or 'XI'})", justify="left", no_wrap=True)
 
     if bundle.event.home_manager or bundle.event.away_manager:
         hm_txt = Text()
@@ -1264,18 +1265,19 @@ def render_lineups_tab(bundle: FullMatchBundle, selected_player_idx: int = 0) ->
         if bundle.event.away_manager:
             am_txt.append("  ◆ Coach: ", style="bold #ffd166")
             am_txt.append(f"{bundle.event.away_manager}\n", style="bold #f8fafc")
-        squad_tbl.add_row(hm_txt, am_txt)
+        squad_tbl.add_row(hm_txt, Text(""), am_txt)
 
     h_starters = lu.home.starters
     a_starters = lu.away.starters
     for i in range(max(len(h_starters), len(a_starters))):
         h_cell = _format_squad_row(h_starters[i], motm_id, sel_id) if i < len(h_starters) else Text("")
         a_cell = _format_squad_row(a_starters[i], motm_id, sel_id) if i < len(a_starters) else Text("")
-        squad_tbl.add_row(h_cell, a_cell)
+        squad_tbl.add_row(h_cell, Text(""), a_cell)
 
     # Bench / Substitutes section
     squad_tbl.add_row(
         Text("\n── Substitutes ──", style="bold #94a3b8"),
+        Text(""),
         Text("\n── Substitutes ──", style="bold #94a3b8"),
     )
     h_subs = lu.home.substitutes
@@ -1283,12 +1285,13 @@ def render_lineups_tab(bundle: FullMatchBundle, selected_player_idx: int = 0) ->
     for i in range(max(len(h_subs), len(a_subs))):
         h_cell = _format_squad_row(h_subs[i], motm_id, sel_id) if i < len(h_subs) else Text("")
         a_cell = _format_squad_row(a_subs[i], motm_id, sel_id) if i < len(a_subs) else Text("")
-        squad_tbl.add_row(h_cell, a_cell)
+        squad_tbl.add_row(h_cell, Text(""), a_cell)
 
     # Missing / Injured players
     if lu.home.missing_players or lu.away.missing_players:
         squad_tbl.add_row(
             Text("\n── Missing / Injured ──", style="bold #f87171"),
+            Text(""),
             Text("\n── Missing / Injured ──", style="bold #f87171"),
         )
         hm = lu.home.missing_players
@@ -1296,7 +1299,7 @@ def render_lineups_tab(bundle: FullMatchBundle, selected_player_idx: int = 0) ->
         for i in range(max(len(hm), len(am))):
             hc = Text(f"  ✖ {hm[i].short_name} ({hm[i].reason})", style="dim #fca5a5") if i < len(hm) else Text("")
             ac = Text(f"  ✖ {am[i].short_name} ({am[i].reason})", style="dim #fca5a5") if i < len(am) else Text("")
-            squad_tbl.add_row(hc, ac)
+            squad_tbl.add_row(hc, Text(""), ac)
 
     squad_panel = Panel(
         squad_tbl,
