@@ -416,11 +416,11 @@ class SofaTuiApp(App[None]):
         )
 
         pills = [
-            ("all", f"[a] ALL ({len(self._all_matches)})"),
-            ("live", f"[v] ● LIVE ({live_count})"),
-            ("finished", f"[f] FT ({ft_count})"),
-            ("upcoming", f"[u] NEXT ({up_count})"),
-            ("starred", f"[s] ★ ({star_count})"),
+            ("all", f"[a]All({len(self._all_matches)})"),
+            ("live", f"[v]●Live({live_count})"),
+            ("finished", f"[f]FT({ft_count})"),
+            ("upcoming", f"[u]Next({up_count})"),
+            ("starred", f"[s]★({star_count})"),
         ]
         strip = Text()
         self._filter_hit_ranges = []
@@ -434,7 +434,6 @@ class SofaTuiApp(App[None]):
                 strip.append(f" {label} ", style="dim #cbd5e1")
             strip.apply_meta({"filter": key}, f_span, len(strip))
             self._filter_hit_ranges.append((f_start, strip.cell_len, key))
-            strip.append(" ")
         self.query_one("#filter-strip", Static).update(strip)
 
         # Right pane tabs bar
@@ -574,7 +573,34 @@ class SofaTuiApp(App[None]):
             opt_idx = 0
             new_options: list[Option] = []
 
-            for m in filtered:
+            starred_list = [
+                m
+                for m in filtered
+                if self.favorites.is_match_starred(m.id, m.home_team.id, m.away_team.id)
+            ]
+            unstarred_list = [
+                m
+                for m in filtered
+                if not self.favorites.is_match_starred(m.id, m.home_team.id, m.away_team.id)
+            ]
+
+            if starred_list and self.active_filter != "starred":
+                pin_hdr = Text(f"★ Pinned Matches ({len(starred_list)})", style="bold #ffd166 on #1e293b")
+                new_options.append(Option(pin_hdr, id=f"hdr:{opt_idx}", disabled=True))
+                opt_idx += 1
+                for m in starred_list:
+                    opt_id = f"match:{m.id}"
+                    label = format_match_option_label(m, now_ts, is_starred=True, show_date=show_date)
+                    new_options.append(Option(label, id=opt_id))
+                    self._displayed_matches[opt_id] = m
+                    if prev_opt_id == opt_id or m.id == self._current_match_id:
+                        target_highlight_idx = opt_idx
+                    elif target_highlight_idx is None:
+                        target_highlight_idx = opt_idx
+                    opt_idx += 1
+
+            main_feed = filtered if self.active_filter == "starred" else unstarred_list
+            for m in main_feed:
                 league_key = f"{m.tournament.category_name} • {m.tournament.name}"
                 if league_key != current_league_key:
                     current_league_key = league_key
