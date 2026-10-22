@@ -460,6 +460,8 @@ class MatchEvent:
                 base = 90 if "1st" in desc_lower else 105
                 return f"{base + elapsed_min}'"
             return f"{elapsed_min}'"
+        if desc_lower in ("started", "in progress", "inprogress", "live", ""):
+            return "LIVE"
         return self.status_description[:6]
 
     @classmethod

@@ -293,7 +293,8 @@ def render_scoreboard_banner(bundle: FullMatchBundle, is_starred: bool = False) 
         score_style = "bold #00e676" if ev.is_live else "bold #f8fafc"
         center_txt.append(f" {h_str}  -  {a_str} \n", style=score_style)
         if ev.is_live:
-            center_txt.append(f" ● LIVE {clock_str} ", style="bold #ffffff on #e11d48")
+            live_lbl = " ● LIVE " if clock_str.upper() == "LIVE" else f" ● LIVE {clock_str} "
+            center_txt.append(live_lbl, style="bold #ffffff on #e11d48")
         elif ev.is_finished:
             center_txt.append(f" {clock_str} ({ev.status_description}) ", style="bold #e2e8f0 on #334155")
         else:

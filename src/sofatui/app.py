@@ -473,13 +473,6 @@ class SofaTuiApp(App[None]):
             self.call_from_thread(self._set_status, f"Fetching matches for {self.active_date.isoformat()}...")
         t0 = time.monotonic()
         matches = self.client.get_matches_for_date(self.active_date.isoformat(), force=force)
-        if self.active_filter == "live" and self.active_date == datetime.date.today():
-            live_matches = self.client.get_live_matches(force=force)
-            if live_matches:
-                by_id = {m.id: m for m in matches}
-                for lm in live_matches:
-                    by_id[lm.id] = lm
-                matches = list(by_id.values())
         elapsed_ms = (time.monotonic() - t0) * 1000.0
         self.call_from_thread(self._on_matches_loaded, matches, elapsed_ms, silent)
 
