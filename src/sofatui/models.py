@@ -841,6 +841,15 @@ class TeamLineup:
     def substitutes(self) -> list[PlayerLineup]:
         return [p for p in self.players if p.substitute]
 
+    @property
+    def average_age(self) -> float | None:
+        ages = [p.age for p in self.starters if p.age is not None and p.age > 0]
+        if not ages:
+            ages = [p.age for p in self.players if p.age is not None and p.age > 0]
+        if not ages:
+            return None
+        return round(sum(ages) / len(ages), 1)
+
 
 @dataclass
 class MatchLineups:

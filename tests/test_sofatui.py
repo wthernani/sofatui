@@ -262,6 +262,8 @@ def test_all_renderers_produce_rich_output() -> None:
     assert "8.0★" not in upcoming_lu_txt
     assert "[ITA • Italy]" in upcoming_lu_txt
     assert "Age 20" in upcoming_lu_txt
+    assert "Avg Age: 20.0 yrs" in upcoming_lu_txt
+    assert "Avg 20.0y" in upcoming_lu_txt
     assert "8.0" in upcoming_lu_txt
 
 

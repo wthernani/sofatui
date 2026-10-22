@@ -1063,6 +1063,8 @@ def render_tactical_pitch(
     h_hdr.append(f"■ {ev.home_team.name}", style=f"bold {h_color}")
     if lu.home.formation:
         h_hdr.append(f"  •  {lu.home.formation}", style="bold #cbd5e1")
+    if lu.home.average_age is not None:
+        h_hdr.append(f"  •  Avg Age: {lu.home.average_age:.1f} yrs", style="#94a3b8")
     if ev.home_manager:
         h_hdr.append(f"  •  {_coach_title(ev.home_manager)}: {ev.home_manager}", style="#94a3b8")
     pitch_lines.append(Align.center(h_hdr))
@@ -1097,6 +1099,8 @@ def render_tactical_pitch(
     a_hdr.append(f"■ {ev.away_team.name}", style=f"bold {a_color}")
     if lu.away.formation:
         a_hdr.append(f"  •  {lu.away.formation}", style="bold #cbd5e1")
+    if lu.away.average_age is not None:
+        a_hdr.append(f"  •  Avg Age: {lu.away.average_age:.1f} yrs", style="#94a3b8")
     if ev.away_manager:
         a_hdr.append(f"  •  {_coach_title(ev.away_manager)}: {ev.away_manager}", style="#94a3b8")
     pitch_lines.append(Align.center(a_hdr))
@@ -1260,10 +1264,12 @@ def render_lineups_tab(bundle: FullMatchBundle, selected_player_idx: int = 0) ->
     )
 
     # Side-by-side Starting XI & Substitutes table
+    h_age_str = f" • Avg {lu.home.average_age:.1f}y" if lu.home.average_age is not None else ""
+    a_age_str = f" • Avg {lu.away.average_age:.1f}y" if lu.away.average_age is not None else ""
     squad_tbl = Table(expand=True, box=None, show_header=True, header_style="bold #38bdf8", padding=(0, 1))
-    squad_tbl.add_column(f"▶ [HOME] {bundle.event.home_team.name} ({lu.home.formation or 'XI'})", justify="left", no_wrap=True)
+    squad_tbl.add_column(f"▶ [HOME] {bundle.event.home_team.name} ({lu.home.formation or 'XI'}{h_age_str})", justify="left", no_wrap=True)
     squad_tbl.add_column("", ratio=1)
-    squad_tbl.add_column(f"▶ [AWAY] {bundle.event.away_team.name} ({lu.away.formation or 'XI'})", justify="left", no_wrap=True)
+    squad_tbl.add_column(f"▶ [AWAY] {bundle.event.away_team.name} ({lu.away.formation or 'XI'}{a_age_str})", justify="left", no_wrap=True)
 
     if bundle.event.home_manager or bundle.event.away_manager:
         hm_txt = Text()
