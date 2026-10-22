@@ -755,8 +755,12 @@ class PlayerLineup:
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> PlayerLineup:
         p = raw.get("player") or {}
-        st = raw.get("statistics") or {}
-        rating_raw = st.get("rating") or raw.get("avgRating")
+        st = dict(raw.get("statistics") or {})
+        match_rating = st.get("rating")
+        avg_rating = raw.get("avgRating")
+        rating_raw = match_rating if match_rating is not None else avg_rating
+        if match_rating is None and avg_rating is not None:
+            st["isAvgRating"] = True
         rating = float(rating_raw) if rating_raw is not None else None
         return cls(
             id=int(p.get("id") or 0),

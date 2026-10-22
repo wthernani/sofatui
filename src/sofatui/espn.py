@@ -1259,9 +1259,14 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
                 except (TypeError, ValueError):
                     pass
 
-            rating = _compute_player_rating(
-                st_float, pos_abbr, starter, sub_in, team_won, team_drew, conceded
-            )
+            if match_event.is_upcoming:
+                rating: float | None = None
+                mins = 0
+            else:
+                rating = _compute_player_rating(
+                    st_float, pos_abbr, starter, sub_in, team_won, team_drew, conceded
+                )
+                mins = 90 if (starter and not sub_out) else (68 if (starter and sub_out) else (22 if sub_in else 0))
             goals_i = int(st_float.get("totalGoals", 0.0))
             assists_i = int(st_float.get("goalAssists", 0.0))
             sot_i = int(st_float.get("shotsOnTarget", 0.0))
@@ -1272,12 +1277,11 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
             fc_i = int(st_float.get("foulsCommitted", 0.0))
             fs_i = int(st_float.get("foulsSuffered", 0.0))
 
-            mins = 90 if (starter and not sub_out) else (68 if (starter and sub_out) else (22 if sub_in else 0))
-            p_xg = round(goals_i * 0.38 + sot_i * 0.16 + max(0, shots_i - sot_i) * 0.05, 2)
-            p_xa = round(assists_i * 0.35 + (0.08 if mins > 45 else 0.02), 2)
+            p_xg = round(goals_i * 0.38 + sot_i * 0.16 + max(0, shots_i - sot_i) * 0.05, 2) if mins > 0 else 0.0
+            p_xa = round(assists_i * 0.35 + (0.08 if mins > 45 else 0.02), 2) if mins > 0 else 0.0
 
             rich_stats: dict[str, Any] = {
-                "rating": rating,
+                **({"rating": rating} if rating is not None else {}),
                 "minutesPlayed": mins,
                 "goals": goals_i,
                 "goalAssist": assists_i,

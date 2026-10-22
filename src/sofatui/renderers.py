@@ -1114,6 +1114,8 @@ def render_player_inspector(player: PlayerLineup | None, team_name: str, is_motm
     hdr.append_text(format_rating_badge(player.rating, is_motm=is_motm))
     if is_motm:
         hdr.append("  🏆 Player of the Match", style="bold #ffd166")
+    elif st.get("isAvgRating"):
+        hdr.append("  (Season Avg)", style="dim #94a3b8")
     if player.subbed_out_injured:
         hdr.append("  ✚ Subbed off injured", style="bold #ff1744")
 
@@ -1205,14 +1207,24 @@ def render_lineups_tab(bundle: FullMatchBundle, selected_player_idx: int = 0) ->
             border_style="#1e293b",
         )
 
-    # Identify Player of the Match (highest rating)
+    # Identify Player of the Match (only for live/finished matches with actual match ratings)
     all_players: list[tuple[PlayerLineup, str]] = [
         (p, bundle.event.home_team.short_name) for p in lu.home.players
     ] + [
         (p, bundle.event.away_team.short_name) for p in lu.away.players
     ]
-    rated_players = [p for p, _ in all_players if p.rating is not None]
-    motm_id = max(rated_players, key=lambda x: x.rating or 0.0).id if rated_players else 0
+    motm_id = 0
+    if bundle.event.is_live or bundle.event.is_finished:
+        motm_candidates = [
+            p
+            for p, _ in all_players
+            if p.rating is not None
+            and p.rating >= 7.0
+            and not p.stats.get("isAvgRating")
+            and p.minutes_played > 0
+        ]
+        if motm_candidates:
+            motm_id = max(motm_candidates, key=lambda x: x.rating or 0.0).id
 
     sel_player: PlayerLineup | None = None
     sel_team = ""

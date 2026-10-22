@@ -210,6 +210,43 @@ def test_all_renderers_produce_rich_output() -> None:
     tb_txt = _render_to_str(render_standings_tab(bundle))
     assert "HOME" in tb_txt and "AWAY" in tb_txt
 
+    # Upcoming match with pre-match avgRating must NOT mark any player as Player of the Match
+    upcoming_ev = MatchEvent.from_dict(
+        {
+            "id": 1000,
+            "slug": "bournemouth-ac-milan",
+            "startTimestamp": 1792695600,
+            "status": {"code": 0, "description": "Not started", "type": "notstarted"},
+            "homeTeam": {"id": 60, "name": "Bournemouth", "shortName": "Bournemouth", "nameCode": "BOU"},
+            "awayTeam": {"id": 2692, "name": "AC Milan", "shortName": "Milan", "nameCode": "ACM"},
+            "tournament": {"id": 679, "name": "UEFA Europa League", "category": {"name": "Europe"}},
+        }
+    )
+    cisse = PlayerLineup.from_dict(
+        {
+            "player": {"id": 70, "name": "Alphadjo Cisse", "shortName": "A. Cisse"},
+            "shirtNumber": 70,
+            "position": "F",
+            "substitute": False,
+            "avgRating": 8.0,
+            "statistics": {},
+        }
+    )
+    assert cisse.rating == 8.0
+    assert cisse.stats.get("isAvgRating") is True
+    upcoming_bundle = FullMatchBundle(
+        event=upcoming_ev,
+        lineups=MatchLineups(
+            confirmed=False,
+            home=TeamLineup(formation="4-2-3-1", players=players_home),
+            away=TeamLineup(formation="3-4-2-1", players=[cisse]),
+        ),
+    )
+    upcoming_lu_txt = _render_to_str(render_lineups_tab(upcoming_bundle, selected_player_idx=len(players_home)))
+    assert "Player of the Match" not in upcoming_lu_txt
+    assert "8.0★" not in upcoming_lu_txt
+    assert "8.0" in upcoming_lu_txt
+
 
 def test_live_sofascore_client_integration() -> None:
     client = SofaScoreClient()
