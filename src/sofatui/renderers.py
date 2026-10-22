@@ -1108,6 +1108,8 @@ def render_player_inspector(player: PlayerLineup | None, team_name: str, is_motm
     role = str(st.get("tacticalRole") or player.position)
     hdr = Text()
     hdr.append(f"#{player.shirt_number} {player.name} ", style="bold #ffffff")
+    if player.country_display:
+        hdr.append(f"[{player.country_display}] ", style="bold #38bdf8")
     hdr.append(f"({role} • {team_name})  ", style="#94a3b8")
     if player.captain:
         hdr.append("[C] ", style="bold #ffd166")

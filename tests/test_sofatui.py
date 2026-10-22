@@ -224,7 +224,12 @@ def test_all_renderers_produce_rich_output() -> None:
     )
     cisse = PlayerLineup.from_dict(
         {
-            "player": {"id": 70, "name": "Alphadjo Cisse", "shortName": "A. Cisse"},
+            "player": {
+                "id": 70,
+                "name": "Alphadjo Cisse",
+                "shortName": "A. Cisse",
+                "country": {"alpha2": "IT", "alpha3": "ITA", "name": "Italy"},
+            },
             "shirtNumber": 70,
             "position": "F",
             "substitute": False,
@@ -233,6 +238,7 @@ def test_all_renderers_produce_rich_output() -> None:
         }
     )
     assert cisse.rating == 8.0
+    assert cisse.country_display == "ITA • Italy"
     assert cisse.stats.get("isAvgRating") is True
     upcoming_bundle = FullMatchBundle(
         event=upcoming_ev,
@@ -245,6 +251,7 @@ def test_all_renderers_produce_rich_output() -> None:
     upcoming_lu_txt = _render_to_str(render_lineups_tab(upcoming_bundle, selected_player_idx=len(players_home)))
     assert "Player of the Match" not in upcoming_lu_txt
     assert "8.0★" not in upcoming_lu_txt
+    assert "[ITA • Italy]" in upcoming_lu_txt
     assert "8.0" in upcoming_lu_txt
 
 

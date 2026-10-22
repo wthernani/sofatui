@@ -750,11 +750,28 @@ class PlayerLineup:
     subbed_in: int | None = None
     subbed_out: int | None = None
     subbed_out_injured: bool = False
+    country_name: str = ""
+    country_code: str = ""
     stats: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def country_display(self) -> str:
+        if self.country_code and self.country_name:
+            return f"{self.country_code} • {self.country_name}"
+        return self.country_name or self.country_code
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> PlayerLineup:
         p = raw.get("player") or {}
+        c_raw = p.get("country") or raw.get("country") or {}
+        c_name = ""
+        c_code = ""
+        if isinstance(c_raw, dict):
+            c_name = str(c_raw.get("name") or "")
+            c_code = (
+                COUNTRY_ALPHA3_MAP.get(c_name.lower(), "")
+                or str(c_raw.get("alpha3") or c_raw.get("alpha2") or (c_name[:3].upper() if c_name else ""))
+            )
         st = dict(raw.get("statistics") or {})
         match_rating = st.get("rating")
         avg_rating = raw.get("avgRating")
@@ -775,6 +792,8 @@ class PlayerLineup:
             goals=int(st.get("goals") or 0),
             assists=int(st.get("goalAssist") or 0),
             subbed_out_injured=bool(raw.get("subbedOutInjured") or st.get("subbedOutInjured")),
+            country_name=c_name,
+            country_code=c_code,
             stats=st,
         )
 

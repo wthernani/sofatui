@@ -1302,6 +1302,12 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
                 "_lat": lat_map.get(raw_abbr, 0.0),
             }
 
+            c_name = str(ath.get("citizenship") or (ath.get("flag") or {}).get("alt") or "")
+            c_code = (
+                COUNTRY_ALPHA3_MAP.get(c_name.lower(), "")
+                or str(ath.get("citizenshipCountry") or (c_name[:3].upper() if c_name else ""))
+            )
+
             players_list.append(
                 PlayerLineup(
                     id=int(ath.get("id") or (idx + 1 + (0 if is_home_side else 100))),
@@ -1319,6 +1325,8 @@ def parse_espn_summary_bundle(summary: dict[str, Any]) -> FullMatchBundle | None
                     red_cards=rc_i,
                     subbed_in=70 if sub_in else None,
                     subbed_out=70 if sub_out else None,
+                    country_name=c_name,
+                    country_code=c_code,
                     stats=rich_stats,
                 )
             )
