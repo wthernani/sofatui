@@ -798,6 +798,13 @@ def render_statistics_tab(bundle: FullMatchBundle, period: str = "ALL", width: i
         bundle.statistics[0],
     )
 
+    ev = bundle.event
+    home_color, away_color = resolve_match_kit_colors(ev.home_team, ev.away_team)
+    hr, hg, hb = _hex_to_rgb(home_color)
+    ar, ag, ab = _hex_to_rgb(away_color)
+    home_Sub_color = _rgb_to_hex(int(hr * 0.78), int(hg * 0.78), int(hb * 0.78))
+    away_sub_color = _rgb_to_hex(int(ar * 0.78), int(ag * 0.78), int(ab * 0.78))
+
     # Period switcher bar
     p_bar = Text("Period [press 'p' or click to switch]: ", style="dim #94a3b8")
     for per in available_periods:
@@ -824,8 +831,8 @@ def render_statistics_tab(bundle: FullMatchBundle, period: str = "ALL", width: i
             h_win = item.compare_code == 1
             a_win = item.compare_code == 2
 
-            h_val_style = "bold #00e676" if h_win else "#e2e8f0"
-            a_val_style = "bold #38bdf8" if a_win else "#e2e8f0"
+            h_val_style = f"bold {home_color}" if h_win else "#e2e8f0"
+            a_val_style = f"bold {away_color}" if a_win else "#e2e8f0"
 
             total = max(0.001, abs(item.home_val) + abs(item.away_val))
             h_ratio = min(1.0, max(0.0, abs(item.home_val) / total))
@@ -836,10 +843,10 @@ def render_statistics_tab(bundle: FullMatchBundle, period: str = "ALL", width: i
 
             h_bar = Text()
             h_bar.append("░" * (bar_width - h_fill), style="dim #1e293b")
-            h_bar.append("█" * h_fill, style="#00e676" if h_win else "#475569")
+            h_bar.append("█" * h_fill, style=home_color if h_win else home_Sub_color)
 
             a_bar = Text()
-            a_bar.append("█" * a_fill, style="#38bdf8" if a_win else "#475569")
+            a_bar.append("█" * a_fill, style=away_color if a_win else away_sub_color)
             a_bar.append("░" * (bar_width - a_fill), style="dim #1e293b")
 
             tbl.add_row(
