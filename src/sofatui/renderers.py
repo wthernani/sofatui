@@ -199,7 +199,7 @@ def rating_style(rating: float | None) -> str:
 def format_rating_badge(rating: float | None, is_motm: bool = False) -> Text:
     """Render a compact colored SofaScore rating pill."""
     if rating is None or rating <= 0:
-        return Text(" -.- ", style="dim on #1e222d")
+        return Text(" -.- ", style="#cbd5e1 on #334155")
     star = "★" if is_motm else ""
     return Text(f" {rating:.1f}{star} ", style=rating_style(rating))
 

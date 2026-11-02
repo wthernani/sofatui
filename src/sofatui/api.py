@@ -911,8 +911,10 @@ class SofaScoreClient:
                     next_data = self.get_json(f"/team/{top_team_id}/events/next/0", ttl=60.0)
                     last_evs = [MatchEvent.from_dict(e) for e in ((last_data or {}).get("events") or [])[-8:]]
                     next_evs = [MatchEvent.from_dict(e) for e in ((next_data or {}).get("events") or [])[:5]]
+                    live_evs = [e for e in (next_evs + last_evs) if e.is_live]
+                    ordered_evs = live_evs + list(reversed(last_evs)) + next_evs
                     seen = {m.id for m in team_matches}
-                    for m in reversed(last_evs + next_evs):
+                    for m in ordered_evs:
                         if m.id not in seen:
                             seen.add(m.id)
                             team_matches.append(m)

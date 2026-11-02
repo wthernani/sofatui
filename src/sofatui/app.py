@@ -1059,7 +1059,10 @@ def run_cli_snapshot(
             )
         )
 
-    chosen_id = match_id or (matches[0].id if matches else 16363889)
+    chosen_id = match_id or next(
+        (m.id for m in matches if m.is_live or m.is_finished),
+        matches[0].id if matches else 16363889,
+    )
     bundle = client.get_full_match_bundle(chosen_id)
     if not bundle:
         console.print(f"[bold red]Could not load match #{chosen_id}[/]")
