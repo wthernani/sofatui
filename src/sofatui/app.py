@@ -9,8 +9,11 @@ import time
 from typing import Any
 
 from rich.align import Align
-from rich.console import Console, Group, RenderableType
+from rich.color import Color
+from rich.console import Console, ConsoleOptions, Group, RenderResult, RenderableType
 from rich.panel import Panel
+from rich.segment import Segment
+from rich.style import Style
 from rich.text import Text
 from textual import events, on, work
 from textual.app import App, ComposeResult
@@ -948,6 +951,64 @@ class SofaTuiApp(App[None]):
         self.push_screen(HelpModal())
 
 
+class _HighContrastCliRenderable:
+    """Adapt Rich renderable segments so CLI (--dump) output is high-contrast on both white and dark terminals."""
+
+    def __init__(self, renderable: RenderableType) -> None:
+        self.renderable = renderable
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
+        for seg in console.render(self.renderable, options):
+            st = seg.style
+            if st is None or seg.control:
+                yield seg
+                continue
+            # Keep badges with explicit background pills intact
+            if st.bgcolor is not None and not st.bgcolor.is_default:
+                yield seg
+                continue
+            if "░" in seg.text:
+                yield Segment(seg.text, Style(color=Color.parse("#94a3b8"), dim=True), seg.control)
+                continue
+            new_color = st.color
+            new_dim = False
+            if st.color is not None and st.color.triplet is not None:
+                r, g, b = st.color.triplet
+                luma = 0.299 * r + 0.587 * g + 0.114 * b
+                max_c = max(r, g, b)
+                min_c = min(r, g, b)
+                sat = (max_c - min_c) / max_c if max_c > 0 else 0.0
+                if sat < 0.22 and luma >= 185:
+                    # Near-white / light-slate -> terminal default foreground (black on light terminals, white on dark)
+                    new_color = Color.default()
+                elif sat < 0.35 and (luma >= 110 or luma < 65):
+                    # Muted slate (#94a3b8) or dark borders (#1e293b) -> balanced slate #475569
+                    new_color = Color.parse("#475569")
+                elif r > 200 and g > 175 and b < 130:
+                    # Pale yellow / gold (#ffd166, #ffea00) -> rich amber #b45309
+                    new_color = Color.parse("#b45309")
+                elif b > 200 and g > 150 and r < 160:
+                    # Light sky blue (#93c5fd, #38bdf8) -> deep ocean blue #0284c7
+                    new_color = Color.parse("#0284c7")
+                elif g > 190 and r < 100:
+                    # Neon green (#00e676, #4ade80) -> rich emerald #15803d
+                    new_color = Color.parse("#15803d")
+                elif r > 220 and g > 110 and b > 110:
+                    # Pale pink/salmon (#fca5a5, #f87171) -> crimson #dc2626
+                    new_color = Color.parse("#dc2626")
+            new_style = Style(
+                color=new_color,
+                bgcolor=st.bgcolor,
+                bold=st.bold,
+                dim=new_dim,
+                italic=st.italic,
+                underline=st.underline,
+                strike=st.strike,
+                reverse=st.reverse,
+            )
+            yield Segment(seg.text, new_style, seg.control)
+
+
 def run_cli_snapshot(
     date_str: str | None = None,
     match_id: int | None = None,
@@ -959,10 +1020,10 @@ def run_cli_snapshot(
     target_date = date_str or datetime.date.today().isoformat()
 
     if search_query:
-        console.print(f"[bold #00e676]⚽ SofaTUI Global Search:[/] '{search_query}'")
+        console.print(f"[bold #15803d]⚽ SofaTUI Global Search:[/] [bold]'{search_query}'[/]")
         _, matches = client.search_matches_and_teams(search_query)
     else:
-        console.print(f"[bold #00e676]⚽ SofaTUI Live & Scheduled Matches[/] ({target_date})")
+        console.print(f"[bold #15803d]⚽ SofaTUI Live & Scheduled Matches[/] [bold]({target_date})[/]")
         matches = client.get_matches_for_date(target_date)
         if not matches:
             matches = client.get_live_matches()
@@ -978,10 +1039,12 @@ def run_cli_snapshot(
                 preview_lines.append(Text(f"\n🏆 {lg}", style="bold #38bdf8"))
             preview_lines.append(format_match_option_label(m, now_ts, show_date=bool(search_query)))
         console.print(
-            Panel(
-                Group(*preview_lines),
-                title=f"[bold #00e676]▤ Matches Feed ({len(matches)} total)[/]",
-                border_style="#1e293b",
+            _HighContrastCliRenderable(
+                Panel(
+                    Group(*preview_lines),
+                    title=f"[bold #00e676]▤ Matches Feed ({len(matches)} total)[/]",
+                    border_style="#1e293b",
+                )
             )
         )
 
@@ -991,12 +1054,15 @@ def run_cli_snapshot(
         console.print(f"[bold red]Could not load match #{chosen_id}[/]")
         return 1
 
-    console.print(render_scoreboard_banner(bundle))
-    console.print(render_overview_tab(bundle))
-    console.print(render_statistics_tab(bundle, period="ALL"))
-    console.print(render_lineups_tab(bundle, selected_player_idx=0))
-    console.print(render_commentary_tab(bundle, key_only=True))
-    console.print(render_standings_tab(bundle))
+    for section in (
+        render_scoreboard_banner(bundle),
+        render_overview_tab(bundle),
+        render_statistics_tab(bundle, period="ALL", width=120),
+        render_lineups_tab(bundle, selected_player_idx=0),
+        render_commentary_tab(bundle, key_only=True),
+        render_standings_tab(bundle),
+    ):
+        console.print(_HighContrastCliRenderable(section))
     return 0
 
 

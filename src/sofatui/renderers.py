@@ -79,16 +79,20 @@ def resolve_match_kit_colors(home: TeamInfo, away: TeamInfo) -> tuple[str, str]:
     h_col = _ensure_dark_bg_contrast(home.color_primary, min_luma=95.0)
     a_col = _ensure_dark_bg_contrast(away.color_primary, min_luma=95.0)
     if _color_distance(h_col, a_col) < 62.0:
-        # Away kit clash resolution: try away secondary color, then away trim color, then fallback
-        alt_sec = _ensure_dark_bg_contrast(away.color_secondary, min_luma=105.0)
-        if _color_distance(h_col, alt_sec) >= 62.0:
-            a_col = alt_sec
-        else:
-            alt_trim = _ensure_dark_bg_contrast(away.color_trim, min_luma=105.0)
-            if _color_distance(h_col, alt_trim) >= 62.0:
-                a_col = alt_trim
-            else:
-                a_col = "#ffd166" if _color_distance(h_col, "#ffd166") >= 62.0 else "#38bdf8"
+        # Away kit clash resolution: prefer non-white trim/secondary color first so it stays visible on light & dark themes
+        candidates = [
+            _ensure_dark_bg_contrast(away.color_trim, min_luma=105.0),
+            _ensure_dark_bg_contrast(away.color_secondary, min_luma=105.0),
+            "#38bdf8",
+            "#ffd166",
+        ]
+        for cand in candidates:
+            cr, cg, cb = _hex_to_rgb(cand)
+            c_sat = (max(cr, cg, cb) - min(cr, cg, cb)) / max(1, max(cr, cg, cb))
+            c_luma = 0.299 * cr + 0.587 * cg + 0.114 * cb
+            if _color_distance(h_col, cand) >= 62.0 and not (c_sat < 0.15 and c_luma > 215):
+                a_col = cand
+                break
     return (h_col, a_col)
 
 

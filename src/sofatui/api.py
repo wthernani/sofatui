@@ -163,6 +163,7 @@ class SofaScoreClient:
         self._sofascore_ip = resolve_a_fast("www.sofascore.com")
         self._sofascore_ip6 = resolve_aaaa_fast("www.sofascore.com")
         self._espn_ip = resolve_a_fast("site.api.espn.com")
+        self._sofa_prefer_ipv6 = self._has_ipv6_route(self._sofascore_ip6)
         self._local = threading.local()
         self._cache: dict[str, tuple[float, Any]] = {}
         self._stale_cache: dict[str, Any] = {}
@@ -211,8 +212,24 @@ class SofaScoreClient:
         except Exception:
             pass
 
+    @staticmethod
+    def _has_ipv6_route(ip6: str) -> bool:
+        sock = None
+        try:
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+            sock.connect((ip6, 443))
+            return True
+        except Exception:
+            return False
+        finally:
+            if sock is not None:
+                try:
+                    sock.close()
+                except Exception:
+                    pass
+
     def _get_session(self, is_sofascore: bool = True) -> Any:
-        attr_name = "sofa_session" if is_sofascore else "espn_session"
+        attr_name = f"sofa_session_{int(self._sofa_prefer_ipv6)}" if is_sofascore else "espn_session"
         sess = getattr(self._local, attr_name, None)
         if sess is None:
             headers = {
@@ -222,13 +239,15 @@ class SofaScoreClient:
             }
             if HAS_CURL_CFFI and cffi_requests is not None and CurlOpt is not None:
                 if is_sofascore:
+                    use_v6 = self._sofa_prefer_ipv6
+                    target_ip = self._sofascore_ip6 if use_v6 else self._sofascore_ip
                     sess = cffi_requests.Session(
                         impersonate="chrome",
                         headers=headers,
                         curl_options={
-                            CurlOpt.IPRESOLVE: 2,
+                            CurlOpt.IPRESOLVE: 2 if use_v6 else 1,
                             CurlOpt.RESOLVE: [
-                                f"www.sofascore.com:443:{self._sofascore_ip6}",
+                                f"www.sofascore.com:443:{target_ip}",
                             ],
                         },
                     )
@@ -285,6 +304,9 @@ class SofaScoreClient:
                         self._cache_dirty = True
                     return data
                 if resp.status_code == 403 and is_sofascore:
+                    if attempt == 0 and self._has_ipv6_route(self._sofascore_ip6):
+                        self._sofa_prefer_ipv6 = not self._sofa_prefer_ipv6
+                        continue
                     # SofaScore Varnish challenge/rate-limit triggered; activate ESPN failover cooldown
                     self._sofascore_cooldown_until = time.monotonic() + 240.0
                     break
@@ -292,7 +314,10 @@ class SofaScoreClient:
                     return None
             except Exception:
                 if attempt == 0:
-                    setattr(self._local, "sofa_session" if is_sofascore else "espn_session", None)
+                    if is_sofascore:
+                        self._sofa_prefer_ipv6 = False
+                    else:
+                        setattr(self._local, "espn_session", None)
         if allow_stale:
             with self._cache_lock:
                 return self._stale_cache.get(path)
