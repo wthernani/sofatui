@@ -55,7 +55,7 @@ CLUB_IDENTITY_CATALOG: dict[str, tuple[str, str, str, str, str, str]] = {
     "liverpool": ("England", "ENG", "#c8102e", "#f6eb61", "#ffffff", "emblem"),
     "manchester city": ("England", "ENG", "#6cabdd", "#ffffff", "#1c2c5b", "emblem"),
     "man city": ("England", "ENG", "#6cabdd", "#ffffff", "#1c2c5b", "emblem"),
-    "arsenal": ("England", "ENG", "#ef0107", "#ffffff", "#ffd166", "sleeves"),
+    "arsenal": ("England", "ENG", "#ef0107", "#ffffff", "#0284c7", "sleeves"),
     "chelsea": ("England", "ENG", "#034694", "#ffffff", "#dba111", "emblem"),
     "aston villa": ("England", "ENG", "#95bfe5", "#670e36", "#fee505", "sleeves"),
     "tottenham": ("England", "ENG", "#ffffff", "#132257", "#132257", "emblem"),

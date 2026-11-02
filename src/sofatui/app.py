@@ -952,50 +952,61 @@ class SofaTuiApp(App[None]):
 
 
 class _HighContrastCliRenderable:
-    """Adapt Rich renderable segments so CLI (--dump) output is high-contrast on both white and dark terminals."""
+    """Adapt Rich renderable segments so CLI (--dump) output is high-contrast on light/white terminals."""
 
     def __init__(self, renderable: RenderableType) -> None:
         self.renderable = renderable
 
     def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         for seg in console.render(self.renderable, options):
-            st = seg.style
-            if st is None or seg.control:
+            if seg.control:
                 yield seg
+                continue
+            st = seg.style
+            if st is None:
+                if seg.text.strip():
+                    yield Segment(seg.text, Style(color=Color.parse("#0f172a")))
+                else:
+                    yield seg
                 continue
             # Keep badges with explicit background pills intact
             if st.bgcolor is not None and not st.bgcolor.is_default:
                 yield seg
                 continue
             if "░" in seg.text:
-                yield Segment(seg.text, Style(color=Color.parse("#94a3b8"), dim=True), seg.control)
+                yield Segment(seg.text, Style(color=Color.parse("#cbd5e1")), seg.control)
                 continue
             new_color = st.color
             new_dim = False
-            if st.color is not None and st.color.triplet is not None:
+            if st.color is None or st.color.is_default:
+                new_color = Color.parse("#0f172a")
+            elif st.color.triplet is not None:
                 r, g, b = st.color.triplet
                 luma = 0.299 * r + 0.587 * g + 0.114 * b
                 max_c = max(r, g, b)
                 min_c = min(r, g, b)
                 sat = (max_c - min_c) / max_c if max_c > 0 else 0.0
-                if sat < 0.22 and luma >= 185:
-                    # Near-white / light-slate -> terminal default foreground (black on light terminals, white on dark)
-                    new_color = Color.default()
-                elif sat < 0.35 and (luma >= 110 or luma < 65):
-                    # Muted slate (#94a3b8) or dark borders (#1e293b) -> balanced slate #475569
-                    new_color = Color.parse("#475569")
-                elif r > 200 and g > 175 and b < 130:
-                    # Pale yellow / gold (#ffd166, #ffea00) -> rich amber #b45309
-                    new_color = Color.parse("#b45309")
-                elif b > 200 and g > 150 and r < 160:
-                    # Light sky blue (#93c5fd, #38bdf8) -> deep ocean blue #0284c7
-                    new_color = Color.parse("#0284c7")
-                elif g > 190 and r < 100:
-                    # Neon green (#00e676, #4ade80) -> rich emerald #15803d
+                if sat < 0.25 and luma >= 165:
+                    # Near-white / light-slate (#ffffff, #f8fafc, #e2e8f0, #cbd5e1) -> explicit deep charcoal #0f172a
+                    new_color = Color.parse("#0f172a")
+                elif sat < 0.35 and (luma >= 95 or luma < 75):
+                    # Muted slate (#94a3b8, #64748b) or dark borders (#1e293b) -> crisp dark slate #334155
+                    new_color = Color.parse("#334155")
+                elif r > 180 and g > 140 and b < 130:
+                    # Pale yellow / gold (#ffd166, #ffea00, #c6a34f) -> deep amber/brown #9a3412
+                    new_color = Color.parse("#9a3412")
+                elif b > 180 and g > 130 and r < 160:
+                    # Light sky blue (#93c5fd, #38bdf8) -> deep ocean blue #0369a1
+                    new_color = Color.parse("#0369a1")
+                elif g > 170 and r < 100:
+                    # Neon green (#00e676, #22c55e, #4ade80) -> deep forest green #15803d
                     new_color = Color.parse("#15803d")
-                elif r > 220 and g > 110 and b > 110:
-                    # Pale pink/salmon (#fca5a5, #f87171) -> crimson #dc2626
-                    new_color = Color.parse("#dc2626")
+                elif r > 210 and g > 90 and b > 90:
+                    # Pale pink/salmon (#fca5a5, #f87171) -> deep crimson #b91c1c
+                    new_color = Color.parse("#b91c1c")
+                elif luma > 175:
+                    # Catch-all for any other overly bright color -> darken so it always pops on white
+                    new_color = Color.parse(f"#{int(r * 0.45):02x}{int(g * 0.45):02x}{int(b * 0.45):02x}")
             new_style = Style(
                 color=new_color,
                 bgcolor=st.bgcolor,
@@ -1020,10 +1031,10 @@ def run_cli_snapshot(
     target_date = date_str or datetime.date.today().isoformat()
 
     if search_query:
-        console.print(f"[bold #15803d]⚽ SofaTUI Global Search:[/] [bold]'{search_query}'[/]")
+        console.print(f"[bold #15803d]⚽ SofaTUI Global Search:[/] [bold #0f172a]'{search_query}'[/]")
         _, matches = client.search_matches_and_teams(search_query)
     else:
-        console.print(f"[bold #15803d]⚽ SofaTUI Live & Scheduled Matches[/] [bold]({target_date})[/]")
+        console.print(f"[bold #15803d]⚽ SofaTUI Live & Scheduled Matches[/] [bold #0f172a]({target_date})[/]")
         matches = client.get_matches_for_date(target_date)
         if not matches:
             matches = client.get_live_matches()
@@ -1057,7 +1068,7 @@ def run_cli_snapshot(
     for section in (
         render_scoreboard_banner(bundle),
         render_overview_tab(bundle),
-        render_statistics_tab(bundle, period="ALL", width=120),
+        render_statistics_tab(bundle, period="ALL", width=100),
         render_lineups_tab(bundle, selected_player_idx=0),
         render_commentary_tab(bundle, key_only=True),
         render_standings_tab(bundle),
